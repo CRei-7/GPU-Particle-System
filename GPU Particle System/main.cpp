@@ -30,12 +30,12 @@ const unsigned int MAX_PARTICLES = 500;
 
 struct Particle{
     glm::vec3 pos;
-    //glm::vec3 speed;
+    glm::vec3 speed;
     unsigned char r, g, b, a; // Color
     //float size;
     //float angle;
     //float weight;
-    //float life; // Remaining life of the particle. if <0 : dead and unused.
+    float life; // Remaining life of the particle. if <0 : dead and unused.
 };
 
 Particle particlesContainer[MAX_PARTICLES];
@@ -44,6 +44,26 @@ void CreateShaders() {
 	Shader* shaderProgram = new Shader();
 	shaderProgram->CreateFromFiles(vShader, fShader);
 	shaderList.push_back(*shaderProgram);
+}
+
+void setupParticle(int i) {
+    float x = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
+    float y = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
+    float z = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
+    particlesContainer[i].pos = glm::vec3(x, y, z);
+
+	particlesContainer[i].speed = glm::vec3(0.0f, -0.5f, 0.0f); // Initial speed upwards
+
+    /*float r = static_cast<float>(rand()) / RAND_MAX;
+    float g = static_cast<float>(rand()) / RAND_MAX;
+    float b = static_cast<float>(rand()) / RAND_MAX;*/
+    float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+    particlesContainer[i].r = static_cast<unsigned char>(r * 255);
+    particlesContainer[i].g = static_cast<unsigned char>(g * 255);
+    particlesContainer[i].b = static_cast<unsigned char>(b * 255);
+    particlesContainer[i].a = static_cast<unsigned char>(a * 255);
+
+    particlesContainer[i].life = static_cast<float>(rand()) / RAND_MAX * 5.0f; // Random life between 0 and 5 seconds
 }
 
 int main(){
@@ -80,19 +100,7 @@ int main(){
     glEnableVertexAttribArray(0);
 
     for (unsigned int i = 0; i < MAX_PARTICLES; ++i) {
-        float x = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
-        float y = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
-        float z = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
-		particlesContainer[i].pos = glm::vec3(x, y, z);
-
-        /*float r = static_cast<float>(rand()) / RAND_MAX;
-        float g = static_cast<float>(rand()) / RAND_MAX;
-        float b = static_cast<float>(rand()) / RAND_MAX;*/
-        float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
-		particlesContainer[i].r = static_cast<unsigned char>(r * 255);
-		particlesContainer[i].g = static_cast<unsigned char>(g * 255);
-		particlesContainer[i].b = static_cast<unsigned char>(b * 255);
-		particlesContainer[i].a = static_cast<unsigned char>(a * 255);
+		setupParticle(i);
     }
 
 	unsigned int instanceVBO;
@@ -124,6 +132,25 @@ int main(){
 		GLfloat now = glfwGetTime();
         deltaTime = now - lasttime;
 		lasttime = now;
+
+        for(int i = 0; i < MAX_PARTICLES; ++i) {
+            if (particlesContainer[i].life > 0.0f) {
+				//Update particle position based on its speed
+				particlesContainer[i].pos += particlesContainer[i].speed * deltaTime;
+                // Decrease particle life
+                particlesContainer[i].life -= deltaTime;
+                // If the particle is still alive, update its data in the instance VBO
+				if (particlesContainer[i].life > 0.0f) {// Update the particle's position or other properties here if needed
+                    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+                    glBufferSubData(GL_ARRAY_BUFFER, i * sizeof(Particle), sizeof(Particle), &particlesContainer[i]);
+                    glBindBuffer(GL_ARRAY_BUFFER, 0);
+                }
+            }
+            else {
+                // Respawn the particle
+				setupParticle(i);
+            }
+		}
 
         glfwPollEvents();
 
