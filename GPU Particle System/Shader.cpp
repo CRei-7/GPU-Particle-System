@@ -127,6 +127,8 @@ void Shader::CompileProgram() {
     uniformModel = glGetUniformLocation(shaderID, "model"); //Gets the location of uniform model in shader program
     uniformProjection = glGetUniformLocation(shaderID, "projection");
     uniformView = glGetUniformLocation(shaderID, "view");
+	uniformCameraRight = glGetUniformLocation(shaderID, "cameraRight_worldspace");
+	uniformCameraUp = glGetUniformLocation(shaderID, "cameraUp_worldspace");
     //uniformEyePosition = glGetUniformLocation(shaderID, "eyePosition");
 }
 
@@ -168,8 +170,12 @@ GLuint Shader::GetViewLocation() {
     return uniformView;
 }
 
-GLuint Shader::GetEyePositionLocation() {
-    return uniformEyePosition;
+GLuint Shader::GetCameraRightLocation() {
+    return uniformCameraRight;
+}
+
+GLuint Shader::GetCameraUpLocation() {
+    return uniformCameraUp;
 }
 
 Shader::~Shader() {

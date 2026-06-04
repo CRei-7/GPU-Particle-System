@@ -27,7 +27,8 @@ public:
 	GLuint GetModelLocation();
 	GLuint GetViewLocation();
 
-	GLuint GetEyePositionLocation();
+	GLuint GetCameraRightLocation();
+	GLuint GetCameraUpLocation();
 
 	void UseShader();
 	void ClearShader();
@@ -35,7 +36,7 @@ public:
 	~Shader();
 private:
 
-	GLuint shaderID, uniformProjection, uniformModel, uniformView, uniformEyePosition;
+	GLuint shaderID, uniformProjection, uniformModel, uniformView, uniformCameraRight, uniformCameraUp;
 
 	void CompileShader(const char* vertexCode, const char* fragmentCode);
 	void CompileShader(const char* vertexCode, const char* geometryCode, const char* fragmentCode);
