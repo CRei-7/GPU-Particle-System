@@ -11,9 +11,16 @@
 #include "Window.h"
 #include "Shader.h"
 #include "Camera.h"
+#include "ParticlePool.h"
+#include "Emitter.h"
 
 Window mainWindow;
 Camera camera;
+ParticlePool particlePool;
+Emitter emitter(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, -1.0f), 
+    100.0f, 1.0f, -20.0f, 20.0f, 5.0f);//(position, direction, spawnRate, speed, minspread, maxSpread, particleLifetime)
+
+const int MAX_PARTICLES = 500;
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 720;
@@ -26,44 +33,10 @@ std::vector<Shader> shaderList;
 
 GLuint uniformModel = 0, uniformProjection = 0, uniformView = 0;
 
-const unsigned int MAX_PARTICLES = 500;
-
-struct Particle{
-    glm::vec3 pos;
-    glm::vec3 speed;
-    unsigned char r, g, b, a; // Color
-    //float size;
-    //float angle;
-    //float weight;
-    float life; // Remaining life of the particle. if <0 : dead and unused.
-};
-
-Particle particlesContainer[MAX_PARTICLES];
-
 void CreateShaders() {
 	Shader* shaderProgram = new Shader();
 	shaderProgram->CreateFromFiles(vShader, fShader);
 	shaderList.push_back(*shaderProgram);
-}
-
-void setupParticle(int i) {
-    float x = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
-    float y = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
-    float z = (static_cast<float>(rand()) / RAND_MAX - 0.5f) * 2.0f;
-    particlesContainer[i].pos = glm::vec3(x, y, z);
-
-	particlesContainer[i].speed = glm::vec3(0.0f, -0.5f, 0.0f); // Initial speed upwards
-
-    /*float r = static_cast<float>(rand()) / RAND_MAX;
-    float g = static_cast<float>(rand()) / RAND_MAX;
-    float b = static_cast<float>(rand()) / RAND_MAX;*/
-    float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
-    particlesContainer[i].r = static_cast<unsigned char>(r * 255);
-    particlesContainer[i].g = static_cast<unsigned char>(g * 255);
-    particlesContainer[i].b = static_cast<unsigned char>(b * 255);
-    particlesContainer[i].a = static_cast<unsigned char>(a * 255);
-
-    particlesContainer[i].life = static_cast<float>(rand()) / RAND_MAX * 5.0f; // Random life between 0 and 5 seconds
 }
 
 int main(){
@@ -99,14 +72,12 @@ int main(){
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    for (unsigned int i = 0; i < MAX_PARTICLES; ++i) {
-		setupParticle(i);
-    }
+	particlePool = ParticlePool(MAX_PARTICLES);
 
 	unsigned int instanceVBO;
 	glGenBuffers(1, &instanceVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle), particlesContainer, GL_STATIC_DRAW);// Syntax: (target, size, data, usage)
+	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle), particlePool.particles.data(), GL_STATIC_DRAW);// Syntax: (target, size, data, usage)
 
 	glEnableVertexAttribArray(1);// This is for the instance offset attribute
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle,pos));//Syntax: (index, size, type, normalized, stride, pointer)
@@ -127,28 +98,31 @@ int main(){
 
 	float deltaTime = 0.0f;	// Time between current frame and last frame
 	float lasttime = 0.0f; // Time of last frame
+	float gravity = -0.25f; // Gravity strength
 
     while (!mainWindow.getShouldClose()){
 		GLfloat now = glfwGetTime();
         deltaTime = now - lasttime;
 		lasttime = now;
 
-        for(int i = 0; i < MAX_PARTICLES; ++i) {
-            if (particlesContainer[i].life > 0.0f) {
-				//Update particle position based on its speed
-				particlesContainer[i].pos += particlesContainer[i].speed * deltaTime;
-                // Decrease particle life
-                particlesContainer[i].life -= deltaTime;
+		emitter.update(deltaTime, particlePool);
+
+        particlePool.releaseDeadParticles();
+
+        for(int i = 0; i < particlePool.capacity(); ++i) {
+            if (particlePool.particles[i].life > 0.0f) {
+                particlePool.particles[i].pos += particlePool.particles[i].speed * deltaTime;//Update particle position based on its speed
+                
+				particlePool.particles[i].speed.y += gravity * deltaTime; // Apply gravity to the particle's vertical speed
+                
+                particlePool.particles[i].life -= deltaTime;// Decrease particle life
+                
                 // If the particle is still alive, update its data in the instance VBO
-				if (particlesContainer[i].life > 0.0f) {// Update the particle's position or other properties here if needed
+				if (particlePool.particles[i].life > 0.0f) {// Update the particle's position or other properties here if needed
                     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-                    glBufferSubData(GL_ARRAY_BUFFER, i * sizeof(Particle), sizeof(Particle), &particlesContainer[i]);
+                    glBufferSubData(GL_ARRAY_BUFFER, i * sizeof(Particle), sizeof(Particle), &particlePool.particles[i]);
                     glBindBuffer(GL_ARRAY_BUFFER, 0);
                 }
-            }
-            else {
-                // Respawn the particle
-				setupParticle(i);
             }
 		}
 
