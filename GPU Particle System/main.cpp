@@ -13,14 +13,15 @@
 #include "Camera.h"
 #include "ParticlePool.h"
 #include "Emitter.h"
+#include "ImGuiManager.h"
 
 Window mainWindow;
 Camera camera;
 ParticlePool particlePool;
 Emitter emitter(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, -1.0f), 
-    100.0f, 1.0f, -20.0f, 20.0f, 5.0f);//(position, direction, spawnRate, speed, minspread, maxSpread, particleLifetime)
+    600.0f, 1.0f, -30.0f, 30.0f, 5.0f);//(position, direction, spawnRate, speed, minspread, maxSpread, particleLifetime)
 
-const int MAX_PARTICLES = 500;
+const int MAX_PARTICLES = 3000;
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 720;
@@ -33,6 +34,9 @@ std::vector<Shader> shaderList;
 
 GLuint uniformModel = 0, uniformProjection = 0, uniformView = 0;
 
+ImGuiManager imgui_manager;
+const char* glsl_version = "#version 330";
+
 void CreateShaders() {
 	Shader* shaderProgram = new Shader();
 	shaderProgram->CreateFromFiles(vShader, fShader);
@@ -43,13 +47,15 @@ int main(){
 	mainWindow = Window(SCR_WIDTH, SCR_HEIGHT);
 	mainWindow.initialize();
 
+	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version);
+
     CreateShaders();
 
     float vertices[] = {
-         0.01f,  0.01f, 0.0f,  // top right
-         0.01f, -0.01f, 0.0f,  // bottom right
-        -0.01f, -0.01f, 0.0f,  // bottom left
-        -0.01f,  0.01f, 0.0f   // top left 
+         0.001f,  0.001f, 0.0f,  // top right
+         0.001f, -0.001f, 0.0f,  // bottom right
+        -0.001f, -0.001f, 0.0f,  // bottom left
+        -0.001f,  0.001f, 0.0f   // top left 
     };
     unsigned int indices[] = {  // note that we start from 0!
         0, 1, 3,  // first Triangle
@@ -109,6 +115,8 @@ int main(){
 
         particlePool.releaseDeadParticles();
 
+        bool should_close = false;
+
         for(int i = 0; i < particlePool.capacity(); ++i) {
             if (particlePool.particles[i].life > 0.0f) {
                 particlePool.particles[i].pos += particlePool.particles[i].speed * deltaTime;//Update particle position based on its speed
@@ -133,6 +141,14 @@ int main(){
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        imgui_manager.BeginFrame();
+
+        imgui_manager.SetupMenuBar(mainWindow.getGLFWwindow(), &should_close);
+        if (should_close)
+            glfwSetWindowShouldClose(mainWindow.getGLFWwindow(), true);
+        imgui_manager.Render();
+        imgui_manager.EndFrame();
 
 		shaderList[0].UseShader();
 
@@ -167,6 +183,7 @@ int main(){
 		mainWindow.swapBuffers();
     }
 
+	imgui_manager.Cleanup();
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);

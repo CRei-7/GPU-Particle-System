@@ -71,11 +71,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir)\libraries\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\libraries\include;$(SolutionDir)\libraries\ImGui;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\libraries\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir)\libraries\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)\libraries\include;$(SolutionDir)\libraries\ImGui;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)\libraries\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -133,17 +133,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\libraries\ImGui\imgui.cpp" />
+    <ClCompile Include="..\libraries\ImGui\ImGuiFileDialog.cpp" />
+    <ClCompile Include="..\libraries\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="..\libraries\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="..\libraries\ImGui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="..\libraries\ImGui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="..\libraries\ImGui\imgui_tables.cpp" />
+    <ClCompile Include="..\libraries\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Emitter.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="ImGuiManager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ParticlePool.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\libraries\ImGui\ImGuiFileDialog.h" />
+    <ClInclude Include="..\libraries\ImGui\ImGuiFileDialogConfig.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Emitter.h" />
+    <ClInclude Include="ImGuiManager.h" />
     <ClInclude Include="Particle.h" />
     <ClInclude Include="ParticlePool.h" />
     <ClInclude Include="Shader.h" />

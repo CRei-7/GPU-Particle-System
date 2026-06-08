@@ -24,6 +24,10 @@ public:
 
 	void swapBuffers() { glfwSwapBuffers(mainWindow); }
 
+	GLFWwindow* getGLFWwindow() { return mainWindow; }
+
+	void toggleCursorVisibility();
+
 	~Window();
 
 private:
@@ -37,6 +41,8 @@ private:
 
 	GLfloat lastX, lastY, xChange, yChange; //to compare coordinates to calculate changes
 	bool mouseFirstMoved; //for first mouse movement
+
+	bool cursorVisible; // Track cursor visibility state
 
 	void createCallbacks();//for key callbacks
 
