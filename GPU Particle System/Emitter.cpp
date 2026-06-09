@@ -7,68 +7,61 @@ static float RandomFloat(float min, float max) {
 	return min + random * (max - min);
 }
 
-Emitter::Emitter(glm::vec3 position_, glm::vec3 direction_, float spawnRate_, float speed_, float minSpread_, float maxSpread_, float particleLifetime)
-	: position(position_), direction(direction_), spawnRate(spawnRate_), speed(speed_), minSpread(minSpread_), maxSpread(maxSpread_), particleLifetime(particleLifetime), accumulator(0.0f) {
+Emitter::Emitter(EmitterConfig emitter_config_)
+	: emitter_config(emitter_config_) {
 }
 
 void Emitter::spawnParticle(ParticlePool& pool) {
 	int index = pool.acquire();
 	if (index != -1) {
-		Particle& particle = pool.particles[index];
-		particle.pos = position;
-		
 		float theta = RandomFloat(0.0f, 2 * PI); // We're using spherical coordinates
-		float phi = RandomFloat(minSpread * PI/180.0f, maxSpread * PI / 180.0f);// Convert spread from degrees to radians
+		float phi = RandomFloat(emitter_config.minSpread * PI/180.0f, emitter_config.maxSpread * PI / 180.0f);// Convert spread from degrees to radians
 		glm::vec3 offset = glm::vec3(// Convert spherical coordinates to Cartesian coordinates
 			sin(phi) * cos(theta),
 			sin(phi) * sin(theta),
 			cos(phi)
 		);
-		glm::vec3 randomDir = glm::normalize(direction + offset);// Add the random offset to the emitter's direction and normalize it to get the final direction for the particle
-		particle.speed = randomDir * speed;
+		glm::vec3 randomDir = glm::normalize(emitter_config.direction + offset);// Add the random offset to the emitter's direction and normalize it to get the final direction for the particle
+		glm::vec3 vel = randomDir * emitter_config.speed;
 
-		particle.r = 255; // Set color to white
-		particle.g = 255;
-		particle.b = 255;
-		particle.a = 255;
-
-		particle.life = particleLifetime;
-		particle.maxLife = particleLifetime;
+		writeParticle(pool.particles[index], vel);
 	}
 }
 
-void Emitter::update(float deltaTime, ParticlePool &pool) {
-	accumulator += deltaTime;
-	while (accumulator >= 1.0f / spawnRate) {
-		spawnParticle(pool);//spawns a single particle using the emitter's properties and adds it to the pool
-		accumulator -= 1.0f / spawnRate;
-	}
+void Emitter::writeParticle(Particle& p, glm::vec3 velocity) {
+	p.position = glm::vec4(emitter_config.position, emitter_config.size);
+	p.velocity = glm::vec4(velocity, 0.0f);
+	p.color = emitter_config.startColor;
+
+	p.life = emitter_config.particleLifetime;
+	p.maxLife = emitter_config.particleLifetime;
 }
 
 void Emitter::setPosition(const glm::vec3& newPosition) {
-	position = newPosition;
+	emitter_config.position = newPosition;
 }
 
 void Emitter::setDirection(const glm::vec3& newDirection) {
-	direction = newDirection;
-}
-
-void Emitter::setSpawnRate(float newSpawnRate) {
-	spawnRate = newSpawnRate;
+	emitter_config.direction = newDirection;
 }
 
 void Emitter::setSpeed(float newSpeed) {
-	speed = newSpeed;
+	emitter_config.speed = newSpeed;
+}
+
+void Emitter::setSpeedVariation(float newSpeedVariation) {
+	emitter_config.speedVariation = newSpeedVariation;
 }
 
 void Emitter::setSpread(float newMinSpread, float newMaxSpread) {
-	minSpread = newMinSpread;
-	maxSpread = newMaxSpread;
+	emitter_config.minSpread = newMinSpread;
+	emitter_config.maxSpread = newMaxSpread;
 }
 
 void Emitter::setParticleLifetime(float newLifetime) {
-	particleLifetime = newLifetime;
+	emitter_config.particleLifetime = newLifetime;
 }
 
-Emitter::~Emitter() {
+void Emitter::setParticleLifetimeVariation(float newParticleLifetimeVariation) {
+	emitter_config.particleLifetimeVariation = newParticleLifetimeVariation;
 }

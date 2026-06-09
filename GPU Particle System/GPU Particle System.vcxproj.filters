@@ -66,6 +66,9 @@
     <ClCompile Include="..\libraries\ImGui\ImGuiFileDialog.cpp">
       <Filter>Source Files\ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="ContinuousEmitter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Shader.h">
@@ -94,6 +97,12 @@
     </ClInclude>
     <ClInclude Include="..\libraries\ImGui\ImGuiFileDialogConfig.h">
       <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="EmitterConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ContinuousEmitter.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

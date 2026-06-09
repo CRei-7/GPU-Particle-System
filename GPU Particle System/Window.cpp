@@ -25,6 +25,8 @@ Window::Window(GLint windowWidth, GLint windowHeight) {
         keys[i] = 0;
     }
 
+    mouseFirstMoved = true;
+
     //This is so that camera does not start at a random direction
     xChange = 0.0f;
     yChange = 0.0f;

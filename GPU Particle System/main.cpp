@@ -14,12 +14,40 @@
 #include "ParticlePool.h"
 #include "Emitter.h"
 #include "ImGuiManager.h"
+#include "ContinuousEmitter.h"
+#include "EmitterConfig.h"
 
 Window mainWindow;
 Camera camera;
 ParticlePool particlePool;
-Emitter emitter(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, -1.0f), 
-    600.0f, 1.0f, -30.0f, 30.0f, 5.0f);//(position, direction, spawnRate, speed, minspread, maxSpread, particleLifetime)
+
+glm::vec3 position;
+glm::vec3 direction;
+glm::vec4 startColor;
+glm::vec4 endColor;
+float size;
+float speed;
+float speedVariation; // Random variation in speed
+float minSpread; // Angle in degrees for random spread
+float maxSpread;
+float particleLifetime;
+float particleLifetimeVariation;
+
+EmitterConfig config{
+    glm::vec3(0.0f, 0.0f, 0.0f),      // position
+    glm::vec3(0.0f, 1.0f, -1.0f),     // direction
+    glm::vec4(255.0f, 255.0f, 255.0f, 255.0f),// startColor
+    glm::vec4(255.0f, 255.0f, 255.0f, 0.0f),// endColor
+    1.0f,                             // size
+    1.0f,                             // speed
+    0.0f,                             // speedVariation
+    -30.0f,                           // minSpread
+    30.0f,                            // maxSpread
+    5.0f,                             // particleLifetime
+    0.0f                              // particleLifetimeVariation
+};
+
+ContinuousEmitter emitter(config, 600.0f);//(config, spawn rate)
 
 const int MAX_PARTICLES = 3000;
 
@@ -86,11 +114,11 @@ int main(){
 	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle), particlePool.particles.data(), GL_STATIC_DRAW);// Syntax: (target, size, data, usage)
 
 	glEnableVertexAttribArray(1);// This is for the instance offset attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle,pos));//Syntax: (index, size, type, normalized, stride, pointer)
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, position));//Syntax: (index, size, type, normalized, stride, pointer)
 	glVertexAttribDivisor(1, 1); // This tells OpenGL to update the offset attribute once per instance
 
 	glEnableVertexAttribArray(2);// This is for the instance color attribute, 2 is the location in the shader
-	glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Particle), (void*)offsetof(Particle, r));//GL_TRUE is for normalized, since we want to convert the unsigned byte to a float in the shader
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, color));
 	glVertexAttribDivisor(2, 1); // This tells OpenGL to update the color attribute once per instance
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -119,9 +147,9 @@ int main(){
 
         for(int i = 0; i < particlePool.capacity(); ++i) {
             if (particlePool.particles[i].life > 0.0f) {
-                particlePool.particles[i].pos += particlePool.particles[i].speed * deltaTime;//Update particle position based on its speed
+                particlePool.particles[i].position += particlePool.particles[i].velocity * deltaTime;//Update particle position based on its speed
                 
-				particlePool.particles[i].speed.y += gravity * deltaTime; // Apply gravity to the particle's vertical speed
+				particlePool.particles[i].velocity.y += gravity * deltaTime; // Apply gravity to the particle's vertical speed
                 
                 particlePool.particles[i].life -= deltaTime;// Decrease particle life
                 

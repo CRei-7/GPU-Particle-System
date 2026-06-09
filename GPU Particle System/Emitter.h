@@ -1,33 +1,29 @@
 #pragma once
 #include "ParticlePool.h"
+#include "EmitterConfig.h"
 
 class Emitter
 {
 public:
-	Emitter(glm::vec3 position_, glm::vec3 direction_,
-		float spawnRate_, float speed_, float minSpread_, float maxSpread_, float particleLifetime);
+	explicit Emitter(EmitterConfig emitter_config_);
 
-	void update(float deltaTime, ParticlePool &pool);
+	virtual void update(float deltaTime, ParticlePool& pool) = 0; // Pure virtual function to be implemented by derived classes, this allows for different types of emitters with different update behaviors
 
 	void setPosition(const glm::vec3& newPosition);
 	void setDirection(const glm::vec3& newDirection);
-	void setSpawnRate(float newSpawnRate);
 	void setSpeed(float newSpeed);
+	void setSpeedVariation(float newSpeedVariation);
 	void setSpread(float newMinSpread, float newMaxSpread);
 	void setParticleLifetime(float newLifetime);
+	void setParticleLifetimeVariation(float newLifetimeVariation);
 
-	~Emitter();
+	virtual ~Emitter() = default; // Virtual destructor to allow proper cleanup in derived classes
 
-private:
-	void spawnParticle(ParticlePool& pool);//Spawns a single particle using the emitter's properties and adds it to the pool
+protected:
+	virtual void spawnParticle(ParticlePool& pool);//Spawns a single particle using the emitter's properties and adds it to the pool
 
-	glm::vec3 position;
-	glm::vec3 direction;
-	float spawnRate; // Particles per second
-	float speed;
-	float minSpread; // Angle in degrees for random spread
-	float maxSpread;
-	float particleLifetime;
-	float accumulator; // Accumulates time to determine when to spawn the next particle
+	void writeParticle(Particle& p, glm::vec3 velocity);
+
+	EmitterConfig emitter_config; // Store the emitter configuration for easy access in derived classes
 };
 
