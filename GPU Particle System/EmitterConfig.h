@@ -9,8 +9,7 @@ struct EmitterConfig{
 	float size;
 	float speed;
 	float speedVariation; // Random variation in speed
-	float minSpread; // Angle in degrees for random spread
-	float maxSpread;
+	float spread;
 	float particleLifetime;
 	float particleLifetimeVariation; // Random variation in particle lifetime
 };

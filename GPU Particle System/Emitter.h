@@ -13,9 +13,14 @@ public:
 	void setDirection(const glm::vec3& newDirection);
 	void setSpeed(float newSpeed);
 	void setSpeedVariation(float newSpeedVariation);
-	void setSpread(float newMinSpread, float newMaxSpread);
+	void setSpread(float newMSpread);
 	void setParticleLifetime(float newLifetime);
 	void setParticleLifetimeVariation(float newLifetimeVariation);
+	void setStartColor(const glm::vec4& color);
+	void setEndColor(const glm::vec4& color);
+	void setSize(float newSize);
+
+	const EmitterConfig& getConfig() const;
 
 	virtual ~Emitter() = default; // Virtual destructor to allow proper cleanup in derived classes
 
@@ -26,4 +31,3 @@ protected:
 
 	EmitterConfig emitter_config; // Store the emitter configuration for easy access in derived classes
 };
-

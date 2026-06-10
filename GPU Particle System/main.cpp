@@ -41,8 +41,7 @@ EmitterConfig config{
     1.0f,                             // size
     1.0f,                             // speed
     0.0f,                             // speedVariation
-    -30.0f,                           // minSpread
-    30.0f,                            // maxSpread
+    30.0f,                            // Spread
     5.0f,                             // particleLifetime
     0.0f                              // particleLifetimeVariation
 };
@@ -76,6 +75,8 @@ int main(){
 	mainWindow.initialize();
 
 	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version);
+
+    imgui_manager.SetActiveEmitter(&emitter);
 
     CreateShaders();
 
@@ -132,7 +133,9 @@ int main(){
 
 	float deltaTime = 0.0f;	// Time between current frame and last frame
 	float lasttime = 0.0f; // Time of last frame
-	float gravity = -0.25f; // Gravity strength
+	float gravity = 0.25f; // Gravity strength
+
+    imgui_manager.SetGravity(&gravity);
 
     while (!mainWindow.getShouldClose()){
 		GLfloat now = glfwGetTime();
@@ -149,7 +152,7 @@ int main(){
             if (particlePool.particles[i].life > 0.0f) {
                 particlePool.particles[i].position += particlePool.particles[i].velocity * deltaTime;//Update particle position based on its speed
                 
-				particlePool.particles[i].velocity.y += gravity * deltaTime; // Apply gravity to the particle's vertical speed
+				particlePool.particles[i].velocity.y -= gravity * deltaTime; // Apply gravity to the particle's vertical speed
                 
                 particlePool.particles[i].life -= deltaTime;// Decrease particle life
                 
@@ -177,6 +180,8 @@ int main(){
             glfwSetWindowShouldClose(mainWindow.getGLFWwindow(), true);
         imgui_manager.Render();
         imgui_manager.EndFrame();
+
+        //imgui_manager.SetActiveEmitter(&emitter);
 
 		shaderList[0].UseShader();
 

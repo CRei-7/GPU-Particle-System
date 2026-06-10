@@ -4,6 +4,17 @@
 ImGuiManager::ImGuiManager()
     : clear_color(ImVec4(0.45f, 0.55f, 0.60f, 1.00f)), show_demo_window(true), show_another_window(false)
 {
+    // sensible defaults for the ImGui-side emitter config
+    imguiEmitterConfig.position = glm::vec3(0.0f, 0.0f, 0.0f);
+    imguiEmitterConfig.direction = glm::vec3(0.0f, 1.0f, -1.0f);
+    imguiEmitterConfig.startColor = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
+    imguiEmitterConfig.endColor = glm::vec4(255.0f, 255.0f, 255.0f, 0.0f);
+    imguiEmitterConfig.size = 1.0f;
+    imguiEmitterConfig.speed = 1.0f;
+    imguiEmitterConfig.speedVariation = 0.0f;
+    imguiEmitterConfig.spread = 30.0f;
+    imguiEmitterConfig.particleLifetime = 5.0f;
+    imguiEmitterConfig.particleLifetimeVariation = 0.0f;
 }
 
 ImGuiManager::~ImGuiManager()
@@ -83,11 +94,83 @@ void ImGuiManager::Render()
 
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 290.0f);
 
-        ImGui::BeginGroup();
-        ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "Settings");
-        ImGui::Separator();
+        // Emitter controls
+        if (ImGui::CollapsingHeader("Emitter Configuration", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            // Position
+            float pos[3] = { imguiEmitterConfig.position.x, imguiEmitterConfig.position.y, imguiEmitterConfig.position.z };
+            if (ImGui::DragFloat3("Position", pos, 0.1f)) {
+                imguiEmitterConfig.position = glm::vec3(pos[0], pos[1], pos[2]);
+            }
 
-        ImGui::EndGroup();               // properly close the group
+            // Direction
+            float dir[3] = { imguiEmitterConfig.direction.x, imguiEmitterConfig.direction.y, imguiEmitterConfig.direction.z };
+            if (ImGui::DragFloat3("Direction", dir, 0.1f)) {
+                imguiEmitterConfig.direction = glm::normalize(glm::vec3(dir[0], dir[1], dir[2]));
+            }
+
+            // Colors
+            float startColor[4] = { imguiEmitterConfig.startColor.r, imguiEmitterConfig.startColor.g, imguiEmitterConfig.startColor.b, imguiEmitterConfig.startColor.a };
+            if (ImGui::ColorEdit4("Start Color", startColor)) {
+                imguiEmitterConfig.startColor = glm::vec4(startColor[0], startColor[1], startColor[2], startColor[3]);
+            }
+
+            float endColor[4] = { imguiEmitterConfig.endColor.r, imguiEmitterConfig.endColor.g, imguiEmitterConfig.endColor.b, imguiEmitterConfig.endColor.a };
+            if (ImGui::ColorEdit4("End Color", endColor)) {
+                imguiEmitterConfig.endColor = glm::vec4(endColor[0], endColor[1], endColor[2], endColor[3]);
+            }
+
+            // Size & speed
+            if (ImGui::DragFloat("Size", &imguiEmitterConfig.size, 0.01f, 0.0f, 100.0f)){
+            }
+            if (ImGui::DragFloat("Speed", &imguiEmitterConfig.speed, 0.1f, 0.0f, 1000.0f)){
+            }
+            if (ImGui::DragFloat("Speed Variation", &imguiEmitterConfig.speedVariation, 0.01f, 0.0f, 1000.0f)){
+            }
+
+            // Spread
+            if (ImGui::DragFloat("Spread (deg)", &imguiEmitterConfig.spread, 0.5f, 0.0f, 180.0f)){
+            }
+
+            // Lifetime
+            if (ImGui::DragFloat("Particle Lifetime", &imguiEmitterConfig.particleLifetime, 0.01f, 0.0f, 1000.0f)){
+            }
+            if (ImGui::DragFloat("Lifetime Variation", &imguiEmitterConfig.particleLifetimeVariation, 0.01f, 0.0f, 1000.0f)){
+            }
+
+            ImGui::Separator();
+
+            if (activeEmitter == nullptr)
+            {
+                ImGui::TextColored(ImVec4(1, 0.5f, 0.2f, 1.0f), "No active emitter selected");
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Apply (disabled)")) { /*noop*/ }
+            }
+            else
+            {
+                if (ImGui::Button("Apply to Active Emitter"))
+                {
+                    ApplyConfigToActiveEmitter();
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Reset Emitter"))
+                {
+                    // pull current emitter state back into the ImGui controls
+                    imguiEmitterConfig = activeEmitter->getConfig();
+                }
+            }
+        }
+
+        if (ImGui::CollapsingHeader("External Forces", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::DragFloat("Gravity", gravity, 0.01f, 0.0f, 100.0f)) {
+            }
+        }
+
+        //ImGui::BeginGroup();
+        //ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "Settings");
+        //ImGui::Separator();
+
+        //ImGui::EndGroup();               // properly close the group
         ImGui::PopTextWrapPos();
         ImGui::End();
     }
@@ -132,4 +215,41 @@ bool& ImGuiManager::ShowDemoWindow()
 bool& ImGuiManager::ShowAnotherWindow()
 {
     return show_another_window;
+}
+
+void ImGuiManager::SetActiveEmitter(ContinuousEmitter* emitter)
+{
+    activeEmitter = emitter;
+    if (activeEmitter)
+    {
+        // initialize the ImGui config with the emitter's current config
+        imguiEmitterConfig = activeEmitter->getConfig();
+    }
+}
+
+const EmitterConfig& ImGuiManager::GetEmitterConfig() const
+{
+    return imguiEmitterConfig;
+}
+
+void ImGuiManager::SetEmitterConfig(const EmitterConfig& config)
+{
+    imguiEmitterConfig = config;
+}
+
+void ImGuiManager::ApplyConfigToActiveEmitter()
+{
+    if (!activeEmitter) return;
+
+    activeEmitter->setPosition(imguiEmitterConfig.position);
+    activeEmitter->setDirection(imguiEmitterConfig.direction);
+    activeEmitter->setSpeed(imguiEmitterConfig.speed);
+    activeEmitter->setSpeedVariation(imguiEmitterConfig.speedVariation);
+    activeEmitter->setSpread(imguiEmitterConfig.spread);
+    activeEmitter->setParticleLifetime(imguiEmitterConfig.particleLifetime);
+    activeEmitter->setParticleLifetimeVariation(imguiEmitterConfig.particleLifetimeVariation);
+
+    activeEmitter->setStartColor(imguiEmitterConfig.startColor);
+    activeEmitter->setEndColor(imguiEmitterConfig.endColor);
+    activeEmitter->setSize(imguiEmitterConfig.size);
 }

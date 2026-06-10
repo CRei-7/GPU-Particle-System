@@ -15,7 +15,7 @@ void Emitter::spawnParticle(ParticlePool& pool) {
 	int index = pool.acquire();
 	if (index != -1) {
 		float theta = RandomFloat(0.0f, 2 * PI); // We're using spherical coordinates
-		float phi = RandomFloat(emitter_config.minSpread * PI/180.0f, emitter_config.maxSpread * PI / 180.0f);// Convert spread from degrees to radians
+		float phi = RandomFloat(0.0f, emitter_config.spread * PI / 180.0f);// Convert spread from degrees to radians
 		glm::vec3 offset = glm::vec3(// Convert spherical coordinates to Cartesian coordinates
 			sin(phi) * cos(theta),
 			sin(phi) * sin(theta),
@@ -53,9 +53,8 @@ void Emitter::setSpeedVariation(float newSpeedVariation) {
 	emitter_config.speedVariation = newSpeedVariation;
 }
 
-void Emitter::setSpread(float newMinSpread, float newMaxSpread) {
-	emitter_config.minSpread = newMinSpread;
-	emitter_config.maxSpread = newMaxSpread;
+void Emitter::setSpread(float newSpread) {
+	emitter_config.spread = newSpread;;
 }
 
 void Emitter::setParticleLifetime(float newLifetime) {
@@ -64,4 +63,20 @@ void Emitter::setParticleLifetime(float newLifetime) {
 
 void Emitter::setParticleLifetimeVariation(float newParticleLifetimeVariation) {
 	emitter_config.particleLifetimeVariation = newParticleLifetimeVariation;
+}
+
+void Emitter::setStartColor(const glm::vec4& color) {
+	emitter_config.startColor = color;
+}
+
+void Emitter::setEndColor(const glm::vec4& color) {
+	emitter_config.endColor = color;
+}
+
+void Emitter::setSize(float newSize) {
+	emitter_config.size = newSize;
+}
+
+const EmitterConfig& Emitter::getConfig() const {
+	return emitter_config;
 }
