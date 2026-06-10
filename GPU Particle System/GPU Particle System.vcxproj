@@ -141,6 +141,7 @@
     <ClCompile Include="..\libraries\ImGui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="..\libraries\ImGui\imgui_tables.cpp" />
     <ClCompile Include="..\libraries\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="BurstEmitter.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="ContinuousEmitter.cpp" />
     <ClCompile Include="Emitter.cpp" />
@@ -154,6 +155,7 @@
   <ItemGroup>
     <ClInclude Include="..\libraries\ImGui\ImGuiFileDialog.h" />
     <ClInclude Include="..\libraries\ImGui\ImGuiFileDialogConfig.h" />
+    <ClInclude Include="BurstEmitter.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="ContinuousEmitter.h" />
     <ClInclude Include="Emitter.h" />

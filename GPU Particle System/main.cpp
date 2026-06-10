@@ -16,22 +16,11 @@
 #include "ImGuiManager.h"
 #include "ContinuousEmitter.h"
 #include "EmitterConfig.h"
+#include "BurstEmitter.h"
 
 Window mainWindow;
 Camera camera;
 ParticlePool particlePool;
-
-glm::vec3 position;
-glm::vec3 direction;
-glm::vec4 startColor;
-glm::vec4 endColor;
-float size;
-float speed;
-float speedVariation; // Random variation in speed
-float minSpread; // Angle in degrees for random spread
-float maxSpread;
-float particleLifetime;
-float particleLifetimeVariation;
 
 EmitterConfig config{
     glm::vec3(0.0f, 0.0f, 0.0f),      // position
@@ -47,6 +36,7 @@ EmitterConfig config{
 };
 
 ContinuousEmitter emitter(config, 600.0f);//(config, spawn rate)
+BurstEmitter burst_emitter(config, 100);
 
 const int MAX_PARTICLES = 3000;
 

@@ -2,6 +2,13 @@
 #include "ParticlePool.h"
 #include "EmitterConfig.h"
 
+const float PI = 3.14159265f;
+
+static float RandomFloat(float min, float max) {
+	float random = static_cast<float>(rand()) / static_cast<float>(RAND_MAX); // Generates a random float between 0.0 and 1.0
+	return min + random * (max - min);
+}
+
 class Emitter
 {
 public:
