@@ -34,7 +34,7 @@ public:
 protected:
 	virtual void spawnParticle(ParticlePool& pool);//Spawns a single particle using the emitter's properties and adds it to the pool
 
-	void writeParticle(Particle& p, glm::vec3 velocity);
+	virtual void writeParticle(Particle& p, glm::vec3 velocity);
 
 	EmitterConfig emitter_config; // Store the emitter configuration for easy access in derived classes
 };

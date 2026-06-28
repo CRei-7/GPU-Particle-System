@@ -8,15 +8,17 @@ public:
 
 	void update(float deltaTime, ParticlePool& pool) override;
 
-	void trigger() { triggered = true; }
-
-	bool isTriggered() { return triggered; }
+	void spawnBurst(ParticlePool& pool, glm::vec3 position);
 
 private:
 	void spawnParticle(ParticlePool& pool) override;
 
-	int count;
+	void writeParticle(Particle& p, glm::vec3 velocity) override;
 
-	bool triggered = false;
+	void spawnChildParticle(ParticlePool& pool, glm::vec3 position);
+
+	int count;
+	float spawnAccumulator;
+	float spawnRate; //number of particles that shoot up per sec, making it different from continuous
 };
 

@@ -31,12 +31,12 @@ EmitterConfig config{
     1.0f,                             // speed
     0.0f,                             // speedVariation
     30.0f,                            // Spread
-    5.0f,                             // particleLifetime
+    2.0f,                             // particleLifetime
     0.0f                              // particleLifetimeVariation
 };
 
-ContinuousEmitter emitter(config, 600.0f);//(config, spawn rate)
-BurstEmitter burst_emitter(config, 100);
+ContinuousEmitter continuousEmitter(config, 600.0f);//(config, spawn rate)
+BurstEmitter burstEmitter(config, 100);
 
 const int MAX_PARTICLES = 3000;
 
@@ -66,15 +66,15 @@ int main(){
 
 	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version);
 
-    imgui_manager.SetActiveEmitter(&emitter);
+    imgui_manager.SetActiveEmitter(&continuousEmitter);
 
     CreateShaders();
 
     float vertices[] = {
-         0.001f,  0.001f, 0.0f,  // top right
-         0.001f, -0.001f, 0.0f,  // bottom right
-        -0.001f, -0.001f, 0.0f,  // bottom left
-        -0.001f,  0.001f, 0.0f   // top left 
+         0.005f,  0.005f, 0.0f,  // top right
+         0.005f, -0.005f, 0.0f,  // bottom right
+        -0.005f, -0.005f, 0.0f,  // bottom left
+        -0.005f,  0.005f, 0.0f   // top left 
     };
     unsigned int indices[] = {  // note that we start from 0!
         0, 1, 3,  // first Triangle
@@ -102,7 +102,7 @@ int main(){
 	unsigned int instanceVBO;
 	glGenBuffers(1, &instanceVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle), particlePool.particles.data(), GL_STATIC_DRAW);// Syntax: (target, size, data, usage)
+	glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle), particlePool.particles.data(), GL_DYNAMIC_DRAW);// Syntax: (target, size, data, usage)
 
 	glEnableVertexAttribArray(1);// This is for the instance offset attribute
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Particle), (void*)offsetof(Particle, position));//Syntax: (index, size, type, normalized, stride, pointer)
@@ -127,33 +127,60 @@ int main(){
 
     imgui_manager.SetGravity(&gravity);
 
-    while (!mainWindow.getShouldClose()){
-		GLfloat now = glfwGetTime();
+    while (!mainWindow.getShouldClose()) {
+        GLfloat now = glfwGetTime();
         deltaTime = now - lasttime;
-		lasttime = now;
+        lasttime = now;
 
-		emitter.update(deltaTime, particlePool);
-
-        particlePool.releaseDeadParticles();
+        //continuousEmitter.update(deltaTime, particlePool);
+        burstEmitter.update(deltaTime, particlePool);
 
         bool should_close = false;
 
-        for(int i = 0; i < particlePool.capacity(); ++i) {
-            if (particlePool.particles[i].life > 0.0f) {
-                particlePool.particles[i].position += particlePool.particles[i].velocity * deltaTime;//Update particle position based on its speed
-                
-				particlePool.particles[i].velocity.y -= gravity * deltaTime; // Apply gravity to the particle's vertical speed
-                
-                particlePool.particles[i].life -= deltaTime;// Decrease particle life
-                
+        /*for (int i = 0; i < particlePool.capacity(); ++i) {
+            Particle& p = particlePool.particles[i];
+
+            if (p.life > 0.0f) {
+                p.position += p.velocity * deltaTime;//Update particle position based on its speed
+
+                p.velocity.y -= gravity * deltaTime; // Apply gravity to the particle's vertical speed
+
+                p.life -= deltaTime;// Decrease particle life
+
                 // If the particle is still alive, update its data in the instance VBO
-				if (particlePool.particles[i].life > 0.0f) {// Update the particle's position or other properties here if needed
+                if (p.life > 0.0f) {// Update the particle's position or other properties here if needed
                     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
                     glBufferSubData(GL_ARRAY_BUFFER, i * sizeof(Particle), sizeof(Particle), &particlePool.particles[i]);
                     glBindBuffer(GL_ARRAY_BUFFER, 0);
                 }
             }
-		}
+        }*/
+
+        for (int i = 0; i < particlePool.capacity(); ++i) {
+            Particle& p = particlePool.particles[i];
+
+            if (p.life > 0.0f) {
+                p.position += glm::vec4(glm::vec3(p.velocity) * deltaTime, 0.0f);
+                p.velocity.y -= gravity * deltaTime;
+                p.life -= deltaTime;
+
+                if (p.life <= 0.0f && p.velocity.w == 1.0f) {
+                    p.velocity.w = 0.0f; // Clear flag before burst to be safe
+                    burstEmitter.spawnBurst(particlePool, glm::vec3(p.position));
+                }
+                /*
+                glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+                glBufferSubData(GL_ARRAY_BUFFER, i * sizeof(Particle), sizeof(Particle), &p);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);*/
+            }
+        }
+
+        particlePool.releaseDeadParticles();
+
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle),
+            particlePool.particles.data(), GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         glfwPollEvents();
 

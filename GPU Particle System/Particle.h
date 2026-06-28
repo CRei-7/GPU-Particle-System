@@ -1,19 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
 
-#ifdef r
-#undef r
-#endif
-#ifdef g
-#undef g
-#endif
-#ifdef b
-#undef b
-#endif
-#ifdef a
-#undef a
-#endif
-
 struct Particle {
 	glm::vec4 position;// z is size
 	glm::vec4 velocity;// z is used as a dummy data
