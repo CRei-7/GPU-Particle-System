@@ -94,6 +94,21 @@ void ImGuiManager::Render()
 
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 290.0f);
 
+        // Emitter type selector
+        const char* emitterNames[] = { "Continuous Emitter", "Burst Emitter" };
+        if (ImGui::Combo("Active Emitter", &selectedEmitter, emitterNames, 2)) {
+            // Switch active emitter when selection changes
+            if (selectedEmitter == 0 && continuousEmitter)
+                activeEmitter = continuousEmitter;
+            else if (selectedEmitter == 1 && burstEmitter)
+                activeEmitter = burstEmitter;
+
+            // Sync ImGui controls to the newly selected emitter's current config
+            if (activeEmitter)
+                imguiEmitterConfig = activeEmitter->getConfig();
+        }
+        ImGui::Separator();
+
         // Emitter controls
         if (ImGui::CollapsingHeader("Emitter Configuration", ImGuiTreeNodeFlags_DefaultOpen))
         {
@@ -217,14 +232,14 @@ bool& ImGuiManager::ShowAnotherWindow()
     return show_another_window;
 }
 
-void ImGuiManager::SetActiveEmitter(ContinuousEmitter* emitter)
-{
-    activeEmitter = emitter;
-    if (activeEmitter)
-    {
-        // initialize the ImGui config with the emitter's current config
-        imguiEmitterConfig = activeEmitter->getConfig();
-    }
+void ImGuiManager::SetContinuousEmitter(ContinuousEmitter* emitter) {
+    continuousEmitter = emitter;
+    if (!activeEmitter)
+        activeEmitter = continuousEmitter;
+}
+
+void ImGuiManager::SetBurstEmitter(BurstEmitter* emitter) {
+    burstEmitter = emitter;
 }
 
 const EmitterConfig& ImGuiManager::GetEmitterConfig() const

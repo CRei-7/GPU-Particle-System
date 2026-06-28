@@ -13,6 +13,7 @@
 #include "Emitter.h"
 #include "EmitterConfig.h"
 #include "ContinuousEmitter.h"
+#include "BurstEmitter.h"
 
 class ImGuiManager
 {
@@ -33,9 +34,13 @@ public:
     bool& ShowAnotherWindow();
 
     // Emitter integration
-    void SetActiveEmitter(ContinuousEmitter* emitter);                      // Set which emitter ImGui should apply changes to
+    void SetContinuousEmitter(ContinuousEmitter* emitter);
+    void SetBurstEmitter(BurstEmitter* emitter);
+
     const EmitterConfig& GetEmitterConfig() const;                // Get a copy/reference of the ImGui-ed config
     void SetEmitterConfig(const EmitterConfig& config);           // Replace ImGui's internal config
+
+    int GetSelectedEmitter() const { return selectedEmitter; }
 
     void SetGravity(float* ptr) { gravity = ptr; }
 
@@ -50,6 +55,11 @@ private:
     // Local copy of emitter config exposed to ImGui controls
     EmitterConfig imguiEmitterConfig{};
     Emitter* activeEmitter = nullptr;
+
+    ContinuousEmitter* continuousEmitter = nullptr;
+    BurstEmitter* burstEmitter = nullptr;
+
+    int selectedEmitter = 0; //0 = continuous, 1 = burst
 
     void ApplyConfigToActiveEmitter();
 

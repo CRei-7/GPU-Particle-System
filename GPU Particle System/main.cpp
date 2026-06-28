@@ -66,7 +66,9 @@ int main(){
 
 	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version);
 
-    imgui_manager.SetActiveEmitter(&continuousEmitter);
+    //imgui_manager.SetActiveEmitter(&continuousEmitter);
+    imgui_manager.SetContinuousEmitter(&continuousEmitter);
+    imgui_manager.SetBurstEmitter(&burstEmitter);
 
     CreateShaders();
 
@@ -133,7 +135,10 @@ int main(){
         lasttime = now;
 
         //continuousEmitter.update(deltaTime, particlePool);
-        burstEmitter.update(deltaTime, particlePool);
+        if (imgui_manager.GetSelectedEmitter() == 0)
+            continuousEmitter.update(deltaTime, particlePool);
+        else
+            burstEmitter.update(deltaTime, particlePool);
 
         bool should_close = false;
 
@@ -178,8 +183,7 @@ int main(){
         particlePool.releaseDeadParticles();
 
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle),
-            particlePool.particles.data(), GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(Particle), particlePool.particles.data(), GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         glfwPollEvents();
