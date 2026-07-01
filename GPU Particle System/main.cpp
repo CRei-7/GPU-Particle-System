@@ -18,6 +18,11 @@
 #include "EmitterConfig.h"
 #include "BurstEmitter.h"
 
+//For Nvidia GPU
+extern "C" {
+    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+}
+
 Window mainWindow;
 Camera camera;
 ParticlePool particlePool;
@@ -52,7 +57,7 @@ std::vector<Shader> shaderList;
 GLuint uniformModel = 0, uniformProjection = 0, uniformView = 0;
 
 ImGuiManager imgui_manager;
-const char* glsl_version = "#version 330";
+const char* glsl_version = "#version 430";
 
 void CreateShaders() {
 	Shader* shaderProgram = new Shader();
@@ -63,6 +68,8 @@ void CreateShaders() {
 int main(){
 	mainWindow = Window(SCR_WIDTH, SCR_HEIGHT);
 	mainWindow.initialize();
+
+    //std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << '\n';
 
 	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version);
 
