@@ -19,6 +19,8 @@ public:
 	void CreateFromFiles(const char* vertexLocation, const char* fragmentLocation);
 	void CreateFromFiles(const char* vertexLocation, const char* geometryLocation, const char* fragmentLocation);
 
+	void CreateComputeShader(const char* computeLocation);
+
 	void Validate();
 
 	std::string ReadFile(const char* FileLocation);
@@ -29,6 +31,8 @@ public:
 
 	GLuint GetCameraRightLocation();
 	GLuint GetCameraUpLocation();
+
+	GLuint GetShaderID() { return shaderID; }
 
 	void UseShader();
 	void ClearShader();

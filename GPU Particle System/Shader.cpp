@@ -33,6 +33,31 @@ void Shader::CreateFromFiles(const char* vertexLocation, const char* geometryLoc
     CompileShader(vertexCode, geometryCode, fragmentCode);
 }
 
+void Shader::CreateComputeShader(const char* computeLocation) {
+    std::string computeString = ReadFile(computeLocation);
+    const char* computeCode = computeString.c_str();
+
+    shaderID = glCreateProgram();
+    
+    if (!shaderID) {
+        printf("Error creating Compute Shader\n");
+        return;
+    }
+
+    AddShader(shaderID, computeCode, GL_COMPUTE_SHADER);
+    
+    GLint result = 0;
+    GLchar elog[1024] = { 0 };
+
+    glLinkProgram(shaderID); //Linking
+    glGetProgramiv(shaderID, GL_LINK_STATUS, &result);//to make sure the link is proper
+    if (!result) {
+        glGetProgramInfoLog(shaderID, sizeof(elog), NULL, elog);
+        printf("Error Linking Program: %s \n", elog);
+        return;
+    }
+}
+
 std::string Shader::ReadFile(const char* FileLocation) {
     std::string content;
     std::ifstream fileStream(FileLocation, std::ios::in);

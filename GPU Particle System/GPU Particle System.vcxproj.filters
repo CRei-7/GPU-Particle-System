@@ -114,5 +114,6 @@
   <ItemGroup>
     <None Include="shader.frag" />
     <None Include="shader.vert" />
+    <None Include="particle.comp" />
   </ItemGroup>
 </Project>
