@@ -7,8 +7,8 @@ ImGuiManager::ImGuiManager()
     // sensible defaults for the ImGui-side emitter config
     imguiEmitterConfig.position = glm::vec3(0.0f, 0.0f, 0.0f);
     imguiEmitterConfig.direction = glm::vec3(0.0f, 1.0f, -1.0f);
-    imguiEmitterConfig.startColor = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
-    imguiEmitterConfig.endColor = glm::vec4(255.0f, 255.0f, 255.0f, 0.0f);
+    imguiEmitterConfig.startColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    imguiEmitterConfig.endColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     imguiEmitterConfig.size = 1.0f;
     imguiEmitterConfig.speed = 1.0f;
     imguiEmitterConfig.speedVariation = 0.0f;

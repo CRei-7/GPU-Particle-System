@@ -110,10 +110,15 @@
     <ClInclude Include="BurstEmitter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GPUStructures.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.frag" />
     <None Include="shader.vert" />
     <None Include="particle.comp" />
+    <None Include="emitter.comp" />
+    <None Include="burst.comp" />
   </ItemGroup>
 </Project>

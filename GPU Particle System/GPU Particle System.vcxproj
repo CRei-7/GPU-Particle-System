@@ -160,6 +160,7 @@
     <ClInclude Include="ContinuousEmitter.h" />
     <ClInclude Include="Emitter.h" />
     <ClInclude Include="EmitterConfig.h" />
+    <ClInclude Include="GPUStructures.h" />
     <ClInclude Include="ImGuiManager.h" />
     <ClInclude Include="Particle.h" />
     <ClInclude Include="ParticlePool.h" />
@@ -167,6 +168,8 @@
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="burst.comp" />
+    <None Include="emitter.comp" />
     <None Include="particle.comp" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />

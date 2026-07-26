@@ -1,0 +1,121 @@
+#version 430 core
+layout(local_size_x = 64) in;
+
+struct Particle { // Particle structure
+    vec4 position;  // xyz: position, w: size
+    vec4 velocity;  // xyz: velocity, w: burst flag (0=no burst, 1=burst on death)
+    vec4 color;     // rgba: color
+    float life;     // Remaining lifetime
+    float maxLife;  // Maximum lifetime
+    vec2 padding;
+};
+
+struct EmitterConfig {
+    vec4 position;
+    vec4 direction;
+    vec4 startColor;
+    vec4 endColor;
+    float size;
+    float speed;
+    float speedVariation;
+    float spread;
+    float particleLifetime;
+    float particleLifetimeVariation;
+    float spawnRate;    // particles per second
+    int emitterType;    // 0 = continuous, 1 = burst
+    float deltaTime;
+    int burstCount;     // number of particles in a burst
+    vec2 padding;
+};
+
+layout(std430, binding = 0) buffer ParticleBuffer {
+    Particle particles[];
+};
+
+layout(std430, binding = 1) buffer ParticleCountBuffer {
+    uint particleCount;
+    uint freeListHead;
+};
+
+layout(std430, binding = 2) buffer FreeListBuffer {
+    int freeList[];
+};
+
+layout(std430, binding = 4) buffer BurstBuffer {
+    uint burstParticlesToSpawn;
+    vec4 burstPositions[10000];
+};
+
+layout(std140, binding = 0) uniform EmitterUniform {
+    EmitterConfig config;
+};
+
+uniform uint maxParticles;
+uniform uint frameSeed; // Seed based on frame count for randomness
+
+const float PI = 3.14159265359;
+const uint SEED_BASE = 42u;
+
+uint hash(uint x) {
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+
+float randomFloat(uint seed, float min, float max) {
+    uint h = hash(seed);
+    float random = float(h) / float(0xffffffffU); //normalize to [0,1]
+    return min + random * (max - min);
+}
+
+vec3 randomSphereDirection(uint seed) {
+    float theta = randomFloat(hash(seed + 1u), 0.0, 2.0 * PI);
+    float phi = acos(randomFloat(hash(seed + 2u), -1.0, 1.0));
+    
+    return vec3(
+        sin(phi) * cos(theta),
+        sin(phi) * sin(theta),
+        cos(phi)
+    );
+}
+
+int acquire() { //This is the same as acquire in ParticlePool.cpp
+    // Try to get a particle from free list
+    uint prev = atomicAdd(freeListHead, uint(-1));
+
+    if (prev == 0u || prev > maxParticles) {
+        atomicAdd(freeListHead, 1u); // Restore the free list head if it was invalid
+        return -1; // No free particles
+    }
+
+    atomicAdd(particleCount, 1u); // Increment active particle count
+    return freeList[prev - 1u]; // Return the index of the acquired particle
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    
+    if(index >= burstParticlesToSpawn || index >= 10000u ) return; // Prevent out-of-bounds access
+    
+    vec3 burstPos = burstPositions[index].xyz;
+    
+    int particleIndex = acquire();
+    if (particleIndex == -1) return; // Pool full
+    
+    Particle p;
+    p.position = vec4(burstPos, config.size);
+    
+    // Random spherical direction for burst particles
+    uint seed = hash(SEED_BASE ^ (index * 2654435761u) ^ hash(frameSeed));
+    vec3 dir = randomSphereDirection(seed);
+    p.velocity = vec4(dir * config.speed, 0.0); // 0.0 for no further bursts
+    
+    p.color = config.startColor;
+    p.life = config.particleLifetime * randomFloat(hash(seed + 40u), 0.3, 0.5);
+    p.maxLife = p.life;
+    
+    particles[particleIndex] = p;
+}
