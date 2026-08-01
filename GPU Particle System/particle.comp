@@ -119,11 +119,11 @@ void main() {
     
     // Release dead particles
     if (p.life <= 0.0 && p.maxLife > 0.0) {
-        p.maxLife = -1.0; // Mark as free
         uint slot = atomicAdd(freeListHead, 1u);
         if(slot < maxParticles){
             freeList[slot] = int(index);
             atomicAdd(particleCount, uint(-1));
+            p.maxLife = -1.0; // Mark as free
         }
         else{
             atomicAdd(freeListHead, uint(-1)); // Revert increment if out of bounds

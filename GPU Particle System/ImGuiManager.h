@@ -43,6 +43,7 @@ public:
     int GetSelectedEmitter() const { return selectedEmitter; }
 
     void SetGravity(float* ptr) { gravity = ptr; }
+	void SetCountData(uint32_t* ptr) { countData = ptr; }
 
 private:
     ImVec4 clear_color;
@@ -64,6 +65,7 @@ private:
     void ApplyConfigToActiveEmitter();
 
     float* gravity = nullptr;
+	uint32_t* countData = nullptr;
 };
 
 #endif // IMGUIMANAGER_H

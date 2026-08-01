@@ -82,6 +82,7 @@ void ImGuiManager::Render()
         ImGui::Begin("Sidebar", &showSidebar, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_MenuBar);
         //ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
 
+		ImGui::Text("Particle Count: %u", countData ? *countData : 0);
 
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("Particle System Configuration"))

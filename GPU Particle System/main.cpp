@@ -65,7 +65,7 @@ gpu::EmitterConfig ToGpuEmitterConfig(const EmitterConfig& src, const gpu::Emitt
 	return out;
 }
 
-const int MAX_PARTICLES = 3000;
+const int MAX_PARTICLES = 30000;
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 720;
@@ -281,7 +281,10 @@ int main() {
 	float lasttime = (float)glfwGetTime(); // Time of last frame
 	float gravity = 0.25f; // Gravity strength
 
+	uint32_t aliveCount = 0;
+
 	imgui_manager.SetGravity(&gravity);
+	imgui_manager.SetCountData(&aliveCount);
 
 	//std::cout << particlePool.particles[0].color.a << std::endl;
 
@@ -308,6 +311,11 @@ int main() {
 		glBindBuffer(GL_UNIFORM_BUFFER, emitterConfigUBO);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(gpu::EmitterConfig), &currentConfig);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, particleCountSSBO);
+		glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(uint32_t), &aliveCount);
+		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+		//std::cout << "Particle Count: " << countData << std::endl;
 
 		//Dispatches the emitter compute shader
 		glUseProgram(emitterComputeShader);
