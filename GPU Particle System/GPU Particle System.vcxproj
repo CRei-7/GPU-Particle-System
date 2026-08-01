@@ -163,16 +163,19 @@
     <ClInclude Include="GPUStructures.h" />
     <ClInclude Include="ImGuiManager.h" />
     <ClInclude Include="Particle.h" />
+    <ClInclude Include="ParticleGenMode.h" />
     <ClInclude Include="ParticlePool.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="burst.comp" />
+    <None Include="clearImmortal.comp" />
     <None Include="emitter.comp" />
     <None Include="particle.comp" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
+    <None Include="shapeInit.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -10,7 +10,7 @@ namespace gpu {
 		glm::vec4 color; // Color
 		float life; // Remaining life of the particle. if <0 : dead and unused.
 		float maxLife; // Maximum life of the particle, used for fading out
-		glm::vec2 padding;
+		glm::vec2 flags; // Using this as flags, x = 1 (immortal), y = unused
 	};
 
 	struct EmitterConfig {

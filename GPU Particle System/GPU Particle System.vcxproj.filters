@@ -113,6 +113,9 @@
     <ClInclude Include="GPUStructures.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ParticleGenMode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.frag" />
@@ -120,5 +123,7 @@
     <None Include="particle.comp" />
     <None Include="emitter.comp" />
     <None Include="burst.comp" />
+    <None Include="shapeInit.comp" />
+    <None Include="clearImmortal.comp" />
   </ItemGroup>
 </Project>

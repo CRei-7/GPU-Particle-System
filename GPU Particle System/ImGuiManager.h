@@ -14,6 +14,7 @@
 #include "EmitterConfig.h"
 #include "ContinuousEmitter.h"
 #include "BurstEmitter.h"
+#include "ParticleGenMode.h"
 
 class ImGuiManager
 {
@@ -21,7 +22,7 @@ public:
     ImGuiManager();
     ~ImGuiManager();
 
-    void Init(GLFWwindow* window, const char* glsl_version);
+    void Init(GLFWwindow* window, const char* glsl_version, int MAX_PARTICLES);
     void BeginFrame();
     void EndFrame();
     void Render();
@@ -40,10 +41,22 @@ public:
     const EmitterConfig& GetEmitterConfig() const;                // Get a copy/reference of the ImGui-ed config
     void SetEmitterConfig(const EmitterConfig& config);           // Replace ImGui's internal config
 
-    int GetSelectedEmitter() const { return selectedEmitter; }
+    int GetSelectedMode() const { return selectedMode; }
 
     void SetGravity(float* ptr) { gravity = ptr; }
-	void SetCountData(uint32_t* ptr) { countData = ptr; }
+	void SetCountData(uint32_t* ptr) { aliveCount = ptr; }
+
+    bool GetShapeMotionEnabled() { return shapeMotionEnabled; }
+
+    bool RegenerateRequested() {
+        bool r = regenerateRequested;
+		regenerateRequested = false; // Reset after returning true once
+        return r;
+    }
+
+	int GetShapeParticleCount() { return shapeParticleCount; }
+
+	int GetSelectedMode() { return selectedMode; }
 
 private:
     ImVec4 clear_color;
@@ -60,12 +73,17 @@ private:
     ContinuousEmitter* continuousEmitter = nullptr;
     BurstEmitter* burstEmitter = nullptr;
 
-    int selectedEmitter = 0; //0 = continuous, 1 = burst
+	int selectedMode = 0; //0 = continuous, 1 = burst, 2 = sphere, 3 = disc, 4 = cube
 
     void ApplyConfigToActiveEmitter();
 
     float* gravity = nullptr;
-	uint32_t* countData = nullptr;
+	uint32_t* aliveCount = nullptr;
+	bool shapeMotionEnabled = false;
+	bool regenerateRequested = false;
+	int shapeParticleCount = 1000; // Default particle count for shape generation
+
+	int maxParticles;
 };
 
 #endif // IMGUIMANAGER_H

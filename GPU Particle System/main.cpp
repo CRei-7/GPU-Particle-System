@@ -19,6 +19,8 @@
 #include "BurstEmitter.h"
 #include "GPUStructures.h"
 
+#include "ParticleGenMode.h"
+
 //For Nvidia GPU
 extern "C" {
 	__declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
@@ -77,10 +79,12 @@ static const char* fShader = "./shader.frag";
 static const char* particleShader = "./particle.comp";
 static const char* emitterShader = "./emitter.comp";
 static const char* burstShader = "./burst.comp";
+static const char* shaperInitShader = "./shapeInit.comp";
+static const char* clearImmortalShader = "./clearImmortal.comp";
 
 std::vector<Shader> shaderList;
-Shader emitterProgram, particleProgram, burstProgram;
-GLuint emitterComputeShader = 0, particleComputeShader = 0, burstComputeShader = 0;
+Shader emitterProgram, particleProgram, burstProgram, shapeInitProgram, clearImmortalProgram;
+GLuint emitterComputeShader = 0, particleComputeShader = 0, burstComputeShader = 0, shapeInitComputeShader = 0, clearImmortalComputeShader = 0;
 
 GLuint uniformModel = 0, uniformProjection = 0, uniformView = 0;
 
@@ -110,6 +114,12 @@ void CreateComputeShaders() {
 
 	burstProgram.CreateComputeShader(burstShader);
 	burstComputeShader = burstProgram.GetShaderID();
+
+	shapeInitProgram.CreateComputeShader(shaperInitShader);
+	shapeInitComputeShader = shapeInitProgram.GetShaderID();
+
+	clearImmortalProgram.CreateComputeShader(clearImmortalShader);
+	clearImmortalComputeShader = clearImmortalProgram.GetShaderID();
 }
 
 void InitializeGPUBuffers() {
@@ -180,7 +190,7 @@ int main() {
 
 	//std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << '\n';
 
-	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version);
+	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version, MAX_PARTICLES);
 
 	ContinuousEmitter continuousEmitter(
 		EmitterConfig{
@@ -286,6 +296,8 @@ int main() {
 	imgui_manager.SetGravity(&gravity);
 	imgui_manager.SetCountData(&aliveCount);
 
+	int lastMode = -1;//Tracks previously active mode, -1 = no mode active
+
 	//std::cout << particlePool.particles[0].color.a << std::endl;
 
 	while (!mainWindow.getShouldClose()) {
@@ -304,9 +316,11 @@ int main() {
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		int selectedMode = imgui_manager.GetSelectedMode();
+
 		gpu::EmitterConfig currentConfig = ToGpuEmitterConfig(imgui_manager.GetEmitterConfig(), gpuConfig);
 		currentConfig.deltaTime = deltaTime;
-		currentConfig.emitterType = imgui_manager.GetSelectedEmitter();
+		currentConfig.emitterType = imgui_manager.GetSelectedMode();
 
 		glBindBuffer(GL_UNIFORM_BUFFER, emitterConfigUBO);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(gpu::EmitterConfig), &currentConfig);
@@ -317,31 +331,63 @@ int main() {
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 		//std::cout << "Particle Count: " << countData << std::endl;
 
-		//Dispatches the emitter compute shader
-		glUseProgram(emitterComputeShader);
-		glUniform1ui(glGetUniformLocation(emitterComputeShader, "maxParticles"), MAX_PARTICLES);
-		glUniform1ui(glGetUniformLocation(emitterComputeShader, "frameSeed"), frameCount);
-		glDispatchCompute(1, 1, 1); // Only one thread group for serial spawning
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		bool wasShapeMode = IsShapeMode(lastMode);
+		bool isShapeMode = IsShapeMode(selectedMode);
+		bool regenerate = imgui_manager.RegenerateRequested();
 
-		//Dispatches burst compute shader if burst emitter is selected
-		uint32_t zero = 0;// First reset burst counter
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, burstSSBO);
-		glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(uint32_t), &zero);
-		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		bool needsClear = wasShapeMode && (selectedMode != lastMode || regenerate); //If we were in shape mode and either changed modes or requested regeneration, we need to clear the immortal particles
+		bool needsInit = isShapeMode && (selectedMode != lastMode || regenerate);//If we are in shape mode and either changed modes or requested regeneration, we need to initialize the shape particles
+
+		if (needsClear) {// Clear immortal particles if we are leaving shape mode or regenerating
+			glUseProgram(clearImmortalComputeShader);
+			glUniform1ui(glGetUniformLocation(clearImmortalComputeShader, "maxParticles"), MAX_PARTICLES);
+			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		}
+
+		if (!isShapeMode) {
+			//Dispatches the emitter compute shader
+			glUseProgram(emitterComputeShader);
+			glUniform1ui(glGetUniformLocation(emitterComputeShader, "maxParticles"), MAX_PARTICLES);
+			glUniform1ui(glGetUniformLocation(emitterComputeShader, "frameSeed"), frameCount);
+			glDispatchCompute(1, 1, 1); // Only one thread group for serial spawning
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+			//Dispatches burst compute shader if burst emitter is selected
+			uint32_t zero = 0;// First reset burst counter
+			glBindBuffer(GL_SHADER_STORAGE_BUFFER, burstSSBO);
+			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(uint32_t), &zero);
+			glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+			//Dispatches particle compute shader
+			glUseProgram(particleComputeShader);
+			glUniform1f(glGetUniformLocation(particleComputeShader, "gravity"), gravity);
+			glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
+			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+
+			glUseProgram(burstComputeShader);
+			glUniform1ui(glGetUniformLocation(burstComputeShader, "maxParticles"), MAX_PARTICLES);
+			glUniform1ui(glGetUniformLocation(burstComputeShader, "frameSeed"), frameCount);
+			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+		} else if (needsInit) {
+			glUseProgram(shapeInitComputeShader);
+			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "maxParticles"), MAX_PARTICLES);
+			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "shapeParticleCount"), imgui_manager.GetShapeParticleCount());
+			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "frameSeed"), frameCount);
+			glDispatchCompute((imgui_manager.GetShapeParticleCount() + 63) / 64, 1, 1);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+		}
+
+		lastMode = selectedMode;
 
 		//Dispatches particle compute shader
 		glUseProgram(particleComputeShader);
 		glUniform1f(glGetUniformLocation(particleComputeShader, "gravity"), gravity);
 		glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
 		glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
-		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-
-		glUseProgram(burstComputeShader);
-		glUniform1ui(glGetUniformLocation(burstComputeShader, "maxParticles"), MAX_PARTICLES);
-		glUniform1ui(glGetUniformLocation(burstComputeShader, "frameSeed"), frameCount);
-		glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
 		imgui_manager.BeginFrame();
@@ -403,6 +449,8 @@ int main() {
 	emitterProgram.ClearShader();
 	particleProgram.ClearShader();
 	burstProgram.ClearShader();
+	shapeInitProgram.ClearShader();
+	clearImmortalProgram.ClearShader();
 
 	shaderList[0].ClearShader();
 

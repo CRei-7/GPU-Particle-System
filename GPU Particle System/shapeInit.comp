@@ -1,0 +1,150 @@
+#version 430 core
+layout(local_size_x = 64) in;
+
+struct Particle {
+    vec4 position;  // xyz: position, w: size
+    vec4 velocity;  // xyz: velocity, w: burst flag
+    vec4 color;     // rgba: color
+    float life;
+    float maxLife;
+    vec2 flags; // Using this as flags, x = 1 (immortal), y = unused
+};
+
+struct EmitterConfig {
+    vec4 position;
+    vec4 direction;
+    vec4 startColor;
+    vec4 endColor;
+    float size;
+    float speed;
+    float speedVariation;
+    float spread;
+    float particleLifetime;
+    float particleLifetimeVariation;
+    float spawnRate;    // particles per second
+    int emitterType;    // 0 = continuous, 1 = burst, 2 = sphere, 3 = disc, 4 = cube
+    float deltaTime;
+    int burstCount;     // number of particles in a burst
+    vec2 padding;
+};
+
+layout(std430, binding = 0) buffer ParticleBuffer {// Particle buffer
+    Particle particles[];
+};
+
+layout(std430, binding = 1) buffer ParticleCountBuffer {
+    uint particleCount; //current active particle count
+    uint freeListHead; //index of the head of the free list
+};
+
+layout(std430, binding = 2) buffer FreeListBuffer {
+    int freeList[];
+};
+
+layout(std430, binding = 4) buffer BurstBuffer {
+    uint burstParticlesToSpawn;    // Counter for burst particles to spawn this frame
+    vec4 burstPositions[10000];    // Positions where bursts should occur
+};
+
+layout(std140, binding = 0) uniform EmitterUniform {
+    EmitterConfig config;
+};
+
+uniform uint maxParticles;
+uniform uint shapeParticleCount; // Number of particles to spawn for the shape
+uniform uint frameSeed; 
+
+const float PI = 3.14159265359;
+const uint SEED_BASE = 42u;
+
+//GPU does not have a built-in random number generator, so we implement a simple hash-based random number generator for deterministic randomness based on a seed.
+//Bob Jenkin's hash-based random number generator
+uint hash(uint x) {
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+
+float randomFloat(uint seed, float min, float max) {
+    uint h = hash(seed);
+    float random = float(h) / float(0xffffffffU); //normalize to [0,1]
+    return min + random * (max - min);
+}
+
+vec3 randomSphereDirection(uint seed) {
+    float theta = randomFloat(hash(seed + 1u), 0.0, 2.0 * PI);
+    float phi = acos(randomFloat(hash(seed + 2u), -1.0, 1.0));
+    
+    return vec3(
+        sin(phi) * cos(theta),
+        sin(phi) * sin(theta),
+        cos(phi)
+    );
+}
+
+// Uniformly fills the volume of a sphere of the given radius.
+vec3 sphereShapePosition(uint seed, float radius) {
+    float r = radius * pow(randomFloat(hash(seed + 3u), 0.0, 1.0), 1.0 / 3.0);
+    return randomSphereDirection(seed) * r;
+}
+
+// Flat disc in the XZ plane, uniformly filled.
+vec3 discShapePosition(uint seed, float radius) {
+    float theta = randomFloat(hash(seed + 4u), 0.0, 2.0 * PI);
+    float r = radius * sqrt(randomFloat(hash(seed + 5u), 0.0, 1.0));
+    return vec3(r * cos(theta), 0.0, r * sin(theta));
+}
+
+// Solid cube, 'size' treated as the half-extent.
+vec3 cubeShapePosition(uint seed, float halfExtent) {
+    return vec3(
+        randomFloat(hash(seed + 8u), -halfExtent, halfExtent),
+        randomFloat(hash(seed + 9u), -halfExtent, halfExtent),
+        randomFloat(hash(seed + 10u), -halfExtent, halfExtent)
+    );
+}
+
+int acquire() { //This is the same as acquire in ParticlePool.cpp
+    // Try to get a particle from free list
+    uint prev = atomicAdd(freeListHead, uint(-1));
+
+    if (prev == 0u || prev > maxParticles) {
+        atomicAdd(freeListHead, 1u); // Restore the free list head if it was invalid
+        return -1; // No free particles
+    }
+
+    atomicAdd(particleCount, 1u); // Increment active particle count
+    return freeList[prev - 1u]; // Return the index of the acquired particle
+}
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= shapeParticleCount) return;
+
+    int particleIndex = acquire();
+    if (particleIndex == -1) return; // pool full
+
+    uint seed = hash(SEED_BASE ^ index ^ hash(frameSeed));
+
+    vec3 local;
+    if (config.emitterType == 2){
+        local = sphereShapePosition(seed, config.size);
+    } else if (config.emitterType == 3){
+        local = discShapePosition(seed, config.size);
+    } else {
+        local = cubeShapePosition(seed, config.size);
+    }
+
+    Particle p;
+    p.position = vec4(config.position.xyz + local, config.size);
+    p.velocity = vec4(0.0); // starts at rest;
+    p.color    = config.startColor;
+    p.life     = 1.0; // unused as these particles are immortal
+    p.maxLife  = 1.0; // unused as these particles are immortal
+    p.flags    = vec2(1.0, 0.0); // mark as immortal
+
+    particles[particleIndex] = p;
+}

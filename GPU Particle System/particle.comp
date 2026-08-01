@@ -7,7 +7,7 @@ struct Particle {
     vec4 color;     // rgba: color
     float life;
     float maxLife;
-    vec2 padding;
+    vec2 flags; // Using this as flags, x = 1 (immortal), y = unused
 };
 
 struct EmitterConfig {
@@ -90,44 +90,49 @@ void main() {
     if (index >= maxParticles) return;
     
     Particle p = particles[index];
+    bool isImmortal = (p.flags.x == 1.0);
 
-    if (p.maxLife <= 0.0) return;
+    if(!isImmortal){
+        if (p.maxLife <= 0.0) return;
     
-    if (p.life > 0.0) {
-        p.position.xyz += p.velocity.xyz * config.deltaTime;
-        p.velocity.y -= gravity * config.deltaTime;
-        p.life -= config.deltaTime;
+        if (p.life > 0.0) {
+            p.position.xyz += p.velocity.xyz * config.deltaTime;
+            p.velocity.y -= gravity * config.deltaTime;
+            p.life -= config.deltaTime;
         
-        float lifeRatio = clamp(p.life / p.maxLife, 0.0, 1.0);
-        p.color = mix(config.endColor, config.startColor, lifeRatio);//fades the color from startColor to endColor
-    }
+            float lifeRatio = clamp(p.life / p.maxLife, 0.0, 1.0);
+            p.color = mix(config.endColor, config.startColor, lifeRatio);//fades the color from startColor to endColor
+        }
     
-    if (p.life <= 0.0 && p.velocity.w == 1.0) {
-        p.velocity.w = 0.0; // Clear burst flag to prevent re-triggering
+        if (p.life <= 0.0 && p.velocity.w == 1.0) {
+            p.velocity.w = 0.0; // Clear burst flag to prevent re-triggering
         
-        // Allocates this index for burst spawning
-        int burstCount = max(config.burstCount, 0);
+            // Allocates this index for burst spawning
+            int burstCount = max(config.burstCount, 0);
 
-        uint burstIndex = atomicAdd(burstParticlesToSpawn, uint(burstCount));
+            uint burstIndex = atomicAdd(burstParticlesToSpawn, uint(burstCount));
         
-        if (burstIndex + uint(burstCount) <= 10000u) {
-            for (int i = 0; i < burstCount; ++i) {
-                burstPositions[burstIndex + uint(i)] = vec4(p.position.xyz, 0.0);
+            if (burstIndex + uint(burstCount) <= 10000u) {
+                for (int i = 0; i < burstCount; ++i) {
+                    burstPositions[burstIndex + uint(i)] = vec4(p.position.xyz, 0.0);
+                }
+            }
+        }
+    
+        // Release dead particles
+        if (p.life <= 0.0 && p.maxLife > 0.0) {
+            uint slot = atomicAdd(freeListHead, 1u);
+            if(slot < maxParticles){
+                freeList[slot] = int(index);
+                atomicAdd(particleCount, uint(-1));
+                p.maxLife = -1.0; // Mark as free
+            }
+            else{
+                atomicAdd(freeListHead, uint(-1)); // Revert increment if out of bounds
             }
         }
     }
-    
-    // Release dead particles
-    if (p.life <= 0.0 && p.maxLife > 0.0) {
-        uint slot = atomicAdd(freeListHead, 1u);
-        if(slot < maxParticles){
-            freeList[slot] = int(index);
-            atomicAdd(particleCount, uint(-1));
-            p.maxLife = -1.0; // Mark as free
-        }
-        else{
-            atomicAdd(freeListHead, uint(-1)); // Revert increment if out of bounds
-        }
+    else{
     }
     
     particles[index] = p;

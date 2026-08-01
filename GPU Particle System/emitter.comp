@@ -7,7 +7,7 @@ struct Particle { // Particle structure
     vec4 color;     // rgba: color
     float life;     // Remaining lifetime
     float maxLife;  // Maximum lifetime
-    vec2 padding;
+    vec2 flags; // Using this as flags, x = 1 (immortal), y = unused
 };
 
 struct EmitterConfig {

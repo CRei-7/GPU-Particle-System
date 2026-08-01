@@ -1,0 +1,45 @@
+#version 430 core
+layout(local_size_x = 64) in;
+
+struct Particle {
+    vec4 position;  // xyz: position, w: size
+    vec4 velocity;  // xyz: velocity, w: burst flag
+    vec4 color;     // rgba: color
+    float life;
+    float maxLife;
+    vec2 flags; // Using this as flags, x = 1 (immortal), y = unused
+};
+
+layout(std430, binding = 0) buffer ParticleBuffer {// Particle buffer
+    Particle particles[];
+};
+
+layout(std430, binding = 1) buffer ParticleCountBuffer {
+    uint particleCount; //current active particle count
+    uint freeListHead; //index of the head of the free list
+};
+
+layout(std430, binding = 2) buffer FreeListBuffer {
+    int freeList[];
+};
+
+uniform uint maxParticles;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= maxParticles) return;
+
+    Particle p = particles[index];
+    if (p.flags.x == 0.0) return; // Only clear immortal particles
+
+    uint slot = atomicAdd(freeListHead, 1u);
+    if (slot < maxParticles) {
+        freeList[slot] = int(index);
+        atomicAdd(particleCount, uint(-1));
+        p.maxLife = -1.0; // mark free
+        p.flags = vec2(0.0);
+        particles[index] = p;
+    } else {
+        atomicAdd(freeListHead, uint(-1)); // revert if out of bounds
+    }
+}
