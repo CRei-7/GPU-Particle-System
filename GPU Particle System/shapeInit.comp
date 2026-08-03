@@ -53,6 +53,7 @@ layout(std140, binding = 0) uniform EmitterUniform {
 uniform uint maxParticles;
 uniform uint shapeParticleCount; // Number of particles to spawn for the shape
 uniform uint frameSeed; 
+uniform float hollowSize; // Size of the hollow region for shape generation
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -86,25 +87,35 @@ vec3 randomSphereDirection(uint seed) {
 }
 
 // Uniformly fills the volume of a sphere of the given radius.
-vec3 sphereShapePosition(uint seed, float radius) {
-    float r = radius * pow(randomFloat(hash(seed + 3u), 0.0, 1.0), 1.0 / 3.0);
+vec3 sphereShapePosition(uint seed, float radius, float hollowRadius) {
+    float r = pow(randomFloat(hash(seed+3u), 0.0, 1.0) * (radius * radius * radius - hollowRadius * hollowRadius * hollowRadius) + hollowRadius * hollowRadius * hollowRadius, 1.0 / 3.0);
     return randomSphereDirection(seed) * r;
 }
 
-// Flat disc in the XZ plane, uniformly filled.
-vec3 discShapePosition(uint seed, float radius) {
+// Flat disc in the XZ plane
+vec3 discShapePosition(uint seed, float radius, float hollowRadius) {
     float theta = randomFloat(hash(seed + 4u), 0.0, 2.0 * PI);
-    float r = radius * sqrt(randomFloat(hash(seed + 5u), 0.0, 1.0));
+    float r = pow(randomFloat(hash(seed + 5u), 0.0, 1.0) * (radius * radius - hollowRadius * hollowRadius) + hollowRadius * hollowRadius, 1.0 / 2.0);
     return vec3(r * cos(theta), 0.0, r * sin(theta));
 }
 
 // Solid cube, 'size' treated as the half-extent.
-vec3 cubeShapePosition(uint seed, float halfExtent) {
-    return vec3(
-        randomFloat(hash(seed + 8u), -halfExtent, halfExtent),
-        randomFloat(hash(seed + 9u), -halfExtent, halfExtent),
-        randomFloat(hash(seed + 10u), -halfExtent, halfExtent)
-    );
+vec3 cubeShapePosition(uint seed, float halfExtent, float hollowHalfExtent) {
+    vec3 p;
+
+    uint s = seed;
+
+    do{
+        p = vec3(
+            randomFloat(hash(s + 8u), -halfExtent, halfExtent),
+            randomFloat(hash(s + 9u), -halfExtent, halfExtent),
+            randomFloat(hash(s + 10u), -halfExtent, halfExtent)
+        );
+
+        s += 11u; // Change seed for next iteration if needed
+    } while (abs(p.x) <= hollowHalfExtent && abs(p.y) <= hollowHalfExtent && abs(p.z) <= hollowHalfExtent);
+
+    return p;
 }
 
 int acquire() { //This is the same as acquire in ParticlePool.cpp
@@ -131,11 +142,11 @@ void main() {
 
     vec3 local;
     if (config.emitterType == 2){
-        local = sphereShapePosition(seed, config.size);
+        local = sphereShapePosition(seed, config.size, hollowSize);
     } else if (config.emitterType == 3){
-        local = discShapePosition(seed, config.size);
+        local = discShapePosition(seed, config.size, hollowSize);
     } else {
-        local = cubeShapePosition(seed, config.size);
+        local = cubeShapePosition(seed, config.size, hollowSize);
     }
 
     Particle p;

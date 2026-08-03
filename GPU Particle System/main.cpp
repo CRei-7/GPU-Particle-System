@@ -339,6 +339,7 @@ int main() {
 		bool needsInit = isShapeMode && (selectedMode != lastMode || regenerate);//If we are in shape mode and either changed modes or requested regeneration, we need to initialize the shape particles
 
 		if (needsClear) {// Clear immortal particles if we are leaving shape mode or regenerating
+			//std::cout << "Working" << std::endl;
 			glUseProgram(clearImmortalComputeShader);
 			glUniform1ui(glGetUniformLocation(clearImmortalComputeShader, "maxParticles"), MAX_PARTICLES);
 			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
@@ -372,11 +373,19 @@ int main() {
 			glUniform1ui(glGetUniformLocation(burstComputeShader, "frameSeed"), frameCount);
 			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-		} else if (needsInit) {
+		} 
+		else if (needsInit) {
 			glUseProgram(shapeInitComputeShader);
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "maxParticles"), MAX_PARTICLES);
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "shapeParticleCount"), imgui_manager.GetShapeParticleCount());
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "frameSeed"), frameCount);
+
+			if(imgui_manager.GetShapeHollowEnabled()) {
+				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "hollowSize"), imgui_manager.GetShapeHollowSize());
+			} else {
+				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "hollowSize"), 0.0f);
+			}
+
 			glDispatchCompute((imgui_manager.GetShapeParticleCount() + 63) / 64, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}

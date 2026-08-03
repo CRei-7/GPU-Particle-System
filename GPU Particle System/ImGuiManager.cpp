@@ -112,7 +112,15 @@ void ImGuiManager::Render()
 
 		if (selectedMode >= (int)ParticleGenMode::ShapeSphere)
 		{
+			ImGui::SliderFloat("Shape Size", &imguiEmitterConfig.size, 0.1f, 10.0f);
 			ImGui::SliderInt("Shape Particle Count", &shapeParticleCount, 1, maxParticles);
+			ImGui::Checkbox("Create Hollow Shape", &shapeHollowEnabled);
+			if (shapeHollowEnabled) {
+				ImGui::SliderFloat("Hollow Size", &shapeHollowSize, 0.0f, imguiEmitterConfig.size - 0.01f);
+			}
+			else {
+				shapeHollowSize = 0.0f; // Reset hollow size when hollow is disabled
+			}
 			ImGui::Checkbox("Enable Motion", &shapeMotionEnabled);
 
 			if (ImGui::Button("Regenerate Shape"))
@@ -146,9 +154,7 @@ void ImGuiManager::Render()
 				imguiEmitterConfig.endColor = glm::vec4(endColor[0], endColor[1], endColor[2], endColor[3]);
 			}
 
-			// Size & speed
-			if (ImGui::DragFloat("Size", &imguiEmitterConfig.size, 0.01f, 0.0f, 100.0f)) {
-			}
+			// Speed
 			if (ImGui::DragFloat("Speed", &imguiEmitterConfig.speed, 0.1f, 0.0f, 1000.0f)) {
 			}
 			if (ImGui::DragFloat("Speed Variation", &imguiEmitterConfig.speedVariation, 0.01f, 0.0f, 1000.0f)) {

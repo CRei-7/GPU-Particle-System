@@ -58,6 +58,10 @@ public:
 
 	int GetSelectedMode() { return selectedMode; }
 
+	bool GetShapeHollowEnabled() { return shapeHollowEnabled; }
+
+	float GetShapeHollowSize() { return shapeHollowSize; }
+
 private:
     ImVec4 clear_color;
     bool show_demo_window = false;
@@ -83,7 +87,10 @@ private:
 	bool regenerateRequested = false;
 	int shapeParticleCount = 1000; // Default particle count for shape generation
 
-	int maxParticles;
+	int maxParticles = 0;
+
+	bool shapeHollowEnabled = false;
+	float shapeHollowSize = 0.0f; // Default hollow size for shape generation
 };
 
 #endif // IMGUIMANAGER_H
