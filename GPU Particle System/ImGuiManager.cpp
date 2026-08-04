@@ -121,7 +121,32 @@ void ImGuiManager::Render()
 			else {
 				shapeHollowSize = 0.0f; // Reset hollow size when hollow is disabled
 			}
-			ImGui::Checkbox("Enable Motion", &shapeMotionEnabled);
+
+			ImGui::Checkbox("Enable Rotation", &shapeRotationEnabled);
+			if(shapeRotationEnabled) {
+				ImGui::SliderFloat("Rotation Speed", &angularVelocity, 0.0f, 10.0f);
+			}
+			else {
+				angularVelocity = 0.0f; // Reset rotation speed when rotation is disabled
+			}
+
+			ImGui::Checkbox("Enable Random Motion", &shapeMotionEnabled);
+			ImGui::Checkbox("Add Offsets", &shapeOffsetsEnabled);
+			if (shapeOffsetsEnabled) {
+				ImGui::SliderFloat("X Offset", &xOffset, 0.0f, 1.0f);
+				ImGui::SliderFloat("Y Offset", &yOffset, 0.0f, 1.0f);
+				ImGui::SliderFloat("Z Offset", &zOffset, 0.0f, 1.0f);
+			}
+
+			ImGui::Checkbox("Add Roughness", &shapeRoughnessEnabled);
+			if (shapeRoughnessEnabled) {
+				ImGui::SliderFloat("Maximum Offset", &maxOffset, 0.0f, 1.0f);
+				ImGui::SliderFloat("Roughness Exponent", &roughnessExponent, 0.1f, 5.0f);
+			}
+			else {
+				maxOffset = 0.0f; // Reset max offset when roughness is disabled
+				roughnessExponent = 1.0f; // Reset roughness exponent when roughness is disabled
+			}
 
 			if (ImGui::Button("Regenerate Shape"))
 				regenerateRequested = true;

@@ -62,6 +62,16 @@ public:
 
 	float GetShapeHollowSize() { return shapeHollowSize; }
 
+	bool GetShapeOffsetsEnabled() { return shapeOffsetsEnabled; }
+	glm::vec3 GetShapeOffsets() { return glm::vec3(xOffset, yOffset, zOffset); }
+
+	bool GetShapeRoughnessEnabled() { return shapeRoughnessEnabled; }
+	float GetMaxOffset() { return maxOffset; }
+	float GetRoughnessExponent() { return roughnessExponent; }
+
+	bool GetShapeRotationEnabled() { return shapeRotationEnabled; }
+	float GetAngularVelocity() { return angularVelocity; }
+
 private:
     ImVec4 clear_color;
     bool show_demo_window = false;
@@ -91,6 +101,18 @@ private:
 
 	bool shapeHollowEnabled = false;
 	float shapeHollowSize = 0.0f; // Default hollow size for shape generation
+
+	bool shapeOffsetsEnabled = false;
+	float xOffset = 0.0f;
+	float yOffset = 0.0f;
+	float zOffset = 0.0f;
+
+	bool shapeRoughnessEnabled = false; // Default roughness disabled
+	float maxOffset = 0.0f; // Default maximum offset for roughness
+	float roughnessExponent = 1.0f; // Default roughness exponent for roughness
+
+	bool shapeRotationEnabled = false; // Default rotation disabled
+	float angularVelocity = 0.0f; // Default rotation speed for shape rotation
 };
 
 #endif // IMGUIMANAGER_H

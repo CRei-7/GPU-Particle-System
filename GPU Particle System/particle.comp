@@ -52,6 +52,8 @@ layout(std140, binding = 0) uniform EmitterUniform {
 
 uniform float gravity;
 uniform uint maxParticles;
+uniform bool shapeRotationEnabled;
+uniform float angularVelocity;
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -133,6 +135,18 @@ void main() {
         }
     }
     else{
+        if(shapeRotationEnabled){
+            float angle = angularVelocity * config.deltaTime;
+            float cosAngle = cos(angle);
+            float sinAngle = sin(angle);
+            
+            vec3 pos = p.position.xyz - config.position.xyz; // Translate to origin
+            vec3 rotatedPos;
+            rotatedPos.x = pos.x * cosAngle - pos.z * sinAngle;
+            rotatedPos.y = pos.y; // Rotation about Y-axis
+            rotatedPos.z = pos.x * sinAngle + pos.z * cosAngle;
+            p.position.xyz = rotatedPos + config.position.xyz; // Translate back
+        }
     }
     
     particles[index] = p;

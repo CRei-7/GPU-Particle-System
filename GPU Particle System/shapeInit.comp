@@ -54,6 +54,9 @@ uniform uint maxParticles;
 uniform uint shapeParticleCount; // Number of particles to spawn for the shape
 uniform uint frameSeed; 
 uniform float hollowSize; // Size of the hollow region for shape generation
+uniform vec3 shapeOffsets; // Offsets for the shape position
+uniform float maxOffset;
+uniform float roughnessExponent; // Exponent for roughness calculation
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -140,17 +143,42 @@ void main() {
 
     uint seed = hash(SEED_BASE ^ index ^ hash(frameSeed));
 
-    vec3 local;
+    vec3 normal = vec3(0.0);
+    vec3 roughness = vec3(0.0);
+    float amount = pow(randomFloat(hash(seed+14u), 0.0, 1.0), roughnessExponent);
+
+    vec3 local = vec3(0.0);
     if (config.emitterType == 2){
         local = sphereShapePosition(seed, config.size, hollowSize);
+        normal = normalize(local);
+        roughness = normal * amount * maxOffset;
     } else if (config.emitterType == 3){
         local = discShapePosition(seed, config.size, hollowSize);
+        
+        float signY = randomFloat(seed + 15u, 0.0, 1.0) < 0.5 ? -1.0 : 1.0;
+        roughness = vec3(0.0, signY * amount * maxOffset, 0.0);
     } else {
         local = cubeShapePosition(seed, config.size, hollowSize);
+
+        vec3 absLocal = abs(local);
+
+        if (absLocal.x >= absLocal.y && absLocal.x >= absLocal.z) {
+            normal = vec3(sign(local.x), 0.0, 0.0);
+        } else if (absLocal.y >= absLocal.z) {
+            normal = vec3(0.0, sign(local.y), 0.0);
+        } else {
+            normal = vec3(0.0, 0.0, sign(local.z));
+        }
+
+        roughness = normal * amount * maxOffset;
     }
 
+    vec3 randomOffsets = vec3(randomFloat(hash(seed+11u), - shapeOffsets.x, shapeOffsets.x),
+        randomFloat(hash(seed+12u), - shapeOffsets.y, shapeOffsets.y),
+        randomFloat(hash(seed+13u), - shapeOffsets.z, shapeOffsets.z));
+
     Particle p;
-    p.position = vec4(config.position.xyz + local, config.size);
+    p.position = vec4(config.position.xyz + local + randomOffsets + roughness, config.size);
     p.velocity = vec4(0.0); // starts at rest;
     p.color    = config.startColor;
     p.life     = 1.0; // unused as these particles are immortal

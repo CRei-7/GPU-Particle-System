@@ -233,10 +233,10 @@ int main() {
 	InitializeGPUBuffers();
 
 	float vertices[] = {
-		 0.005f,  0.005f, 0.0f,  // top right
-		 0.005f, -0.005f, 0.0f,  // bottom right
-		-0.005f, -0.005f, 0.0f,  // bottom left
-		-0.005f,  0.005f, 0.0f   // top left 
+		 0.001f,  0.001f, 0.0f,  // top right
+		 0.001f, -0.001f, 0.0f,  // bottom right
+		-0.001f, -0.001f, 0.0f,  // bottom left
+		-0.001f,  0.001f, 0.0f   // top left 
 	};
 	unsigned int indices[] = {  // note that we start from 0!
 		0, 1, 3,  // first Triangle
@@ -386,6 +386,18 @@ int main() {
 				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "hollowSize"), 0.0f);
 			}
 
+			if (imgui_manager.GetShapeOffsetsEnabled()) {
+				glUniform3f(glGetUniformLocation(shapeInitComputeShader, "shapeOffsets"), imgui_manager.GetShapeOffsets().x, imgui_manager.GetShapeOffsets().y, imgui_manager.GetShapeOffsets().z);
+			}
+
+			if(imgui_manager.GetShapeRoughnessEnabled()){
+				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "maxOffset"), imgui_manager.GetMaxOffset());
+				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "roughnessExponent"), imgui_manager.GetRoughnessExponent());
+			} else {
+				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "maxOffset"), 0.0f);
+				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "roughnessExponent"), 1.0f);
+			}
+
 			glDispatchCompute((imgui_manager.GetShapeParticleCount() + 63) / 64, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
@@ -396,6 +408,8 @@ int main() {
 		glUseProgram(particleComputeShader);
 		glUniform1f(glGetUniformLocation(particleComputeShader, "gravity"), gravity);
 		glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
+		glUniform1i(glGetUniformLocation(particleComputeShader, "shapeRotationEnabled"), imgui_manager.GetShapeRotationEnabled());
+		glUniform1f(glGetUniformLocation(particleComputeShader, "angularVelocity"), imgui_manager.GetAngularVelocity());
 		glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
