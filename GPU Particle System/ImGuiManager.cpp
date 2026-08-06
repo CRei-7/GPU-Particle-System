@@ -195,6 +195,11 @@ void ImGuiManager::Render()
 			if (ImGui::DragFloat("Lifetime Variation", &imguiEmitterConfig.particleLifetimeVariation, 0.01f, 0.0f, 1000.0f)) {
 			}
 
+			if(ImGui::DragFloat("Spawn Rate", &spawnRate, 0.1f, 0.0f, 1000.0f)) {
+			}
+			if(ImGui::DragFloat("Burst Count", &burstCount, 1.0f, 1.0f, 1000.0f)) {
+			}
+
 			ImGui::Separator();
 
 			if (activeEmitter == nullptr)

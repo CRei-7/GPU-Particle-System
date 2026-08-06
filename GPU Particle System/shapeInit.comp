@@ -179,7 +179,7 @@ void main() {
 
     Particle p;
     p.position = vec4(config.position.xyz + local + randomOffsets + roughness, config.size);
-    p.velocity = vec4(0.0); // starts at rest;
+    p.velocity = vec4(randomFloat(hash(seed+16u), -1.0, 1.0), randomFloat(hash(seed+17u), -1.0, 1.0), randomFloat(hash(seed+18u), -1.0, 1.0), 0.0); // starts at rest;
     p.color    = config.startColor;
     p.life     = 1.0; // unused as these particles are immortal
     p.maxLife  = 1.0; // unused as these particles are immortal

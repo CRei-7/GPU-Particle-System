@@ -72,6 +72,12 @@ public:
 	bool GetShapeRotationEnabled() { return shapeRotationEnabled; }
 	float GetAngularVelocity() { return angularVelocity; }
 
+	float GetSpawnRate() { return spawnRate; }
+	float GetBurstCount() { return burstCount; }
+
+	void SetSpawnRate(float rate) { spawnRate = rate; }
+	void SetBurstCount(float count) { burstCount = count; }
+
 private:
     ImVec4 clear_color;
     bool show_demo_window = false;
@@ -113,6 +119,9 @@ private:
 
 	bool shapeRotationEnabled = false; // Default rotation disabled
 	float angularVelocity = 0.0f; // Default rotation speed for shape rotation
+
+	float spawnRate = 600.0f;
+	float burstCount = 100.0f;
 };
 
 #endif // IMGUIMANAGER_H

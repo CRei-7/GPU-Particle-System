@@ -54,6 +54,8 @@ uniform float gravity;
 uniform uint maxParticles;
 uniform bool shapeRotationEnabled;
 uniform float angularVelocity;
+uniform int motionEnabled; 
+uniform float hollowSize; // Size of the hollow region for shape generation
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -84,6 +86,62 @@ vec3 randomSphereDirection(uint seed) {
         sin(phi) * sin(theta),
         cos(phi)
     );
+}
+
+void confineSphere(inout vec3 pos, inout vec3 vel, vec3 center, float radius, float hollowRadius){
+    vec3 relative = pos - center;
+    float dist = length(relative);
+    if((dist > radius || dist < hollowRadius) && dist > 0.0001){
+        vec3 normal = relative / dist;
+        pos = center + normal * radius;
+        vel = reflect(vel, normal);
+    }
+}
+
+void confineDisc(inout vec3 pos, inout vec3 vel, vec3 center, float radius, float hollowRadius) {
+    pos.y = center.y;
+    vel.y = 0.0;
+    vec2 relative = pos.xz - center.xz;
+    float dist = length(relative);
+    if ((dist > radius || dist < hollowRadius) && dist > 0.0001) {
+        vec2 normal = relative / dist;
+        pos.xz = center.xz + normal * radius;
+        vel.xz = reflect(vel.xz, normal);
+    }
+}
+
+void confineCube(inout vec3 pos, inout vec3 vel, vec3 center, float halfExtent, float hollowHalfExtent) {
+    vec3 relative = pos - center;
+
+    if (abs(relative.x) > halfExtent) {
+        relative.x = sign(relative.x) * halfExtent;
+        vel.x = -vel.x;
+    }
+    if (abs(relative.y) > halfExtent) {
+        relative.y = sign(relative.y) * halfExtent;
+        vel.y = -vel.y;
+    }
+    if (abs(relative.z) > halfExtent) {
+        relative.z = sign(relative.z) * halfExtent;
+        vel.z = -vel.z;
+    }
+    
+    vec3 absRel = abs(relative);
+    
+    if (absRel.x < hollowHalfExtent && absRel.y < hollowHalfExtent && absRel.z < hollowHalfExtent) {
+        if (absRel.x >= absRel.y && absRel.x >= absRel.z) {
+            relative.x = sign(relative.x) * hollowHalfExtent;
+            vel.x = -vel.x;
+        } else if (absRel.y >= absRel.x && absRel.y >= absRel.z) {
+            relative.y = sign(relative.y) * hollowHalfExtent;
+            vel.y = -vel.y;
+        } else {
+            relative.z = sign(relative.z) * hollowHalfExtent;
+            vel.z = -vel.z;
+        }
+    }
+    
+    pos = center + relative;
 }
 
 void main() {
@@ -135,6 +193,18 @@ void main() {
         }
     }
     else{
+        if(motionEnabled != 0){
+            p.position.xyz += p.velocity.xyz * config.deltaTime;
+
+            if(config.emitterType == 2)
+                confineSphere(p.position.xyz, p.velocity.xyz, config.position.xyz, config.size, hollowSize);
+            
+            if(config.emitterType == 3)
+                confineDisc(p.position.xyz, p.velocity.xyz, config.position.xyz, config.size, hollowSize);
+
+            if(config.emitterType == 4)
+                confineCube(p.position.xyz, p.velocity.xyz, config.position.xyz, config.size, hollowSize);
+        }
         if(shapeRotationEnabled){
             float angle = angularVelocity * config.deltaTime;
             float cosAngle = cos(angle);

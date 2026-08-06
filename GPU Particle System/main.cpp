@@ -233,10 +233,10 @@ int main() {
 	InitializeGPUBuffers();
 
 	float vertices[] = {
-		 0.001f,  0.001f, 0.0f,  // top right
-		 0.001f, -0.001f, 0.0f,  // bottom right
-		-0.001f, -0.001f, 0.0f,  // bottom left
-		-0.001f,  0.001f, 0.0f   // top left 
+		 0.005f,  0.005f, 0.0f,  // top right
+		 0.005f, -0.005f, 0.0f,  // bottom right
+		-0.005f, -0.005f, 0.0f,  // bottom left
+		-0.005f,  0.005f, 0.0f   // top left 
 	};
 	unsigned int indices[] = {  // note that we start from 0!
 		0, 1, 3,  // first Triangle
@@ -321,6 +321,8 @@ int main() {
 		gpu::EmitterConfig currentConfig = ToGpuEmitterConfig(imgui_manager.GetEmitterConfig(), gpuConfig);
 		currentConfig.deltaTime = deltaTime;
 		currentConfig.emitterType = imgui_manager.GetSelectedMode();
+		currentConfig.spawnRate = imgui_manager.GetSpawnRate();
+		currentConfig.burstCount = imgui_manager.GetBurstCount();
 
 		glBindBuffer(GL_UNIFORM_BUFFER, emitterConfigUBO);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(gpu::EmitterConfig), &currentConfig);
@@ -410,6 +412,19 @@ int main() {
 		glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
 		glUniform1i(glGetUniformLocation(particleComputeShader, "shapeRotationEnabled"), imgui_manager.GetShapeRotationEnabled());
 		glUniform1f(glGetUniformLocation(particleComputeShader, "angularVelocity"), imgui_manager.GetAngularVelocity());
+		if(imgui_manager.GetShapeMotionEnabled()) {
+			glUniform1i(glGetUniformLocation(particleComputeShader, "motionEnabled"), 1);
+		} else {
+			glUniform1i(glGetUniformLocation(particleComputeShader, "motionEnabled"), 0);
+		}
+
+		if (imgui_manager.GetShapeHollowEnabled()) {
+			glUniform1f(glGetUniformLocation(particleComputeShader, "hollowSize"), imgui_manager.GetShapeHollowSize());
+		}
+		else {
+			glUniform1f(glGetUniformLocation(particleComputeShader, "hollowSize"), 0.0f);
+		}
+
 		glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
