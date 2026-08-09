@@ -82,11 +82,29 @@ static const char* burstShader = "./burst.comp";
 static const char* shaperInitShader = "./shapeInit.comp";
 static const char* clearImmortalShader = "./clearImmortal.comp";
 
+static const char* screenQuadVShader = "./screenQuad.vert";
+static const char* blurFShader = "./gaussianBlur.frag";
+static const char* compositeFShader = "./bloomComposite.frag";
+
 std::vector<Shader> shaderList;
-Shader emitterProgram, particleProgram, burstProgram, shapeInitProgram, clearImmortalProgram;
+Shader emitterProgram, particleProgram, burstProgram, shapeInitProgram, clearImmortalProgram, blurProgram, compositeProgram;
 GLuint emitterComputeShader = 0, particleComputeShader = 0, burstComputeShader = 0, shapeInitComputeShader = 0, clearImmortalComputeShader = 0;
 
 GLuint uniformModel = 0, uniformProjection = 0, uniformView = 0;
+
+//Bloom framebuffers/textures
+GLuint hdrFBO = 0;
+GLuint hdrColorBuffers[2] = { 0, 0 }; //0 = full scene color, 1 = bright-pass extraction
+GLuint hdrDepthRBO = 0;
+GLuint pingpongFBO[2] = { 0, 0 };//ping pong is used so that we can apply multiple blur passes without overwriting the previous pass's result
+GLuint pingpongBuffers[2] = { 0, 0 };
+GLuint screenQuadVAO = 0, screenQuadVBO = 0;
+
+float glowIntensity = 3.0f;
+float quadRadius = 0.005f; 
+float bloomExposure = 1.0f;
+float bloomStrength = 1.0f;
+const unsigned int BLUR_PASSES = 10;
 
 ImGuiManager imgui_manager;
 const char* glsl_version = "#version 430";
@@ -103,6 +121,82 @@ void CreateShaders() {
 	Shader* shaderProgram = new Shader();
 	shaderProgram->CreateFromFiles(vShader, fShader);
 	shaderList.push_back(*shaderProgram);
+
+	blurProgram.CreateFromFiles(screenQuadVShader, blurFShader);
+	compositeProgram.CreateFromFiles(screenQuadVShader, compositeFShader);
+}
+
+void InitializeBloomFramebuffers() {
+	// Create HDR framebuffer
+	glGenFramebuffers(1, &hdrFBO);// Create framebuffer
+	glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+
+	glGenTextures(2, hdrColorBuffers);// Create two color buffers (one for normal rendering, one for bright-pass)
+	for (int i = 0; i < 2; i++) {
+		glBindTexture(GL_TEXTURE_2D, hdrColorBuffers[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL); //Syntax: glTexImage2D(target, level, internalformat, width, height, border, format, type, data)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);//This is for texture filtering, GL_LINEAR means linear interpolation
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);//This is for texture wrapping, GL_CLAMP_TO_EDGE means clamp to edge
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, hdrColorBuffers[i], 0); //Attach the texture to the framebuffer
+	}
+
+	glGenRenderbuffers(1, &hdrDepthRBO);// Create depth renderbuffer
+	glBindRenderbuffer(GL_RENDERBUFFER, hdrDepthRBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT); //Allocate storage for the renderbuffer
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, hdrDepthRBO); //Attach the renderbuffer to the framebuffer
+
+	GLuint attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, attachments); //Tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
+
+	if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "HDR Framebuffer not complete!" << std::endl;
+
+	glGenFramebuffers(2, pingpongFBO);
+	glGenTextures(2, pingpongBuffers);
+	for (int i = 0; i < 2; i++) {
+		glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+		glBindTexture(GL_TEXTURE_2D, pingpongBuffers[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongBuffers[i], 0);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+			std::cout << "Ping-pong framebuffer " << i << " incomplete!" << std::endl;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind framebuffer
+
+	float quadVertices[] = {
+		-1.0f,  1.0f, 0.0f, 1.0f,//Top Left, texCoords
+		-1.0f, -1.0f, 0.0f, 0.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+
+		 -1.0f,  1.0f, 0.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f, 0.0f,
+		 1.0f,  1.0f, 1.0f, 1.0f
+	};
+
+	glGenVertexArrays(1, &screenQuadVAO);// Create a vertex array object for the screen quad
+	glGenBuffers(1, &screenQuadVBO); // Create a vertex buffer object for the screen quad
+	glBindVertexArray(screenQuadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, screenQuadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);// Upload the vertex data to the GPU
+	glEnableVertexAttribArray(0);// Enable the first attribute (position)
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);// Set the attribute pointer for the first attribute (position)
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+	glBindVertexArray(0);
+}
+
+void RenderScreenQuad() {
+	glBindVertexArray(screenQuadVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
 }
 
 void CreateComputeShaders() {
@@ -127,7 +221,7 @@ void InitializeGPUBuffers() {
 	std::vector<gpu::Particle> initialParticles(MAX_PARTICLES);
 	for (int i = 0; i < MAX_PARTICLES; ++i) {
 		initialParticles[i] = gpu::Particle{
-			glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+			glm::vec4(1.0e6f, 1.0e6f, 1.0e6f, 1.0f),
 			glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
 			glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
 			-1.0f,  // life = -1 means dead/unused
@@ -231,6 +325,7 @@ int main() {
 	CreateShaders();
 	CreateComputeShaders();
 	InitializeGPUBuffers();
+	InitializeBloomFramebuffers();
 
 	float vertices[] = {
 		 0.005f,  0.005f, 0.0f,  // top right
@@ -296,6 +391,11 @@ int main() {
 	imgui_manager.SetGravity(&gravity);
 	imgui_manager.SetCountData(&aliveCount);
 
+	imgui_manager.SetGlowIntensity(&glowIntensity);
+	imgui_manager.SetQuadRadius(&quadRadius);
+	imgui_manager.SetBloomExposure(&bloomExposure);
+	imgui_manager.SetBloomStrength(&bloomStrength);
+
 	int lastMode = -1;//Tracks previously active mode, -1 = no mode active
 
 	//std::cout << particlePool.particles[0].color.a << std::endl;
@@ -312,9 +412,6 @@ int main() {
 
 		camera.keyControl(mainWindow.getKeys(), deltaTime);
 		camera.mouseControl(mainWindow.getxChange(), mainWindow.getyChange());
-
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		int selectedMode = imgui_manager.GetSelectedMode();
 
@@ -436,9 +533,16 @@ int main() {
 		if (should_close)
 			glfwSetWindowShouldClose(mainWindow.getGLFWwindow(), true);
 		imgui_manager.Render();
-		imgui_manager.EndFrame();
+		//imgui_manager.EndFrame();
 
 		//imgui_manager.SetActiveEmitter(&emitter);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE); // additive
 
 		shaderList[0].UseShader();
 
@@ -467,8 +571,50 @@ int main() {
 		glUniform3fv(shaderList[0].GetCameraRightLocation(), 1, glm::value_ptr(cameraRight));
 		glUniform3fv(shaderList[0].GetCameraUpLocation(), 1, glm::value_ptr(cameraUp));
 
+		glUniform1f(glGetUniformLocation(shaderList[0].GetShaderID(), "glowIntensity"), glowIntensity);
+		glUniform1f(glGetUniformLocation(shaderList[0].GetShaderID(), "quadRadius"), quadRadius);
+
 		glBindVertexArray(VAO);
 		glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, MAX_PARTICLES);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glDisable(GL_BLEND);
+
+		//blur the bright-pass texture using a two-pass Gaussian blur
+		bool horizontal = true, first_iteration = true;
+		blurProgram.UseShader();
+		for (unsigned int i = 0; i < BLUR_PASSES; i++) {
+			glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+			glUniform1i(glGetUniformLocation(blurProgram.GetShaderID(), "horizontal"), horizontal);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, first_iteration ? hdrColorBuffers[1] : pingpongBuffers[!horizontal]);
+			glUniform1i(glGetUniformLocation(blurProgram.GetShaderID(), "image"), 0);
+			RenderScreenQuad();
+			horizontal = !horizontal;
+			first_iteration = false;
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		//Composite the scene and the blurred bright-pass texture
+		glViewport(0, 0, mainWindow.getBufferWidth(), mainWindow.getBufferHeight());
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		compositeProgram.UseShader();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, hdrColorBuffers[0]);
+		glUniform1i(glGetUniformLocation(compositeProgram.GetShaderID(), "scene"), 0);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, pingpongBuffers[!horizontal]);
+		glUniform1i(glGetUniformLocation(compositeProgram.GetShaderID(), "bloomBlur"), 1);
+		glUniform1f(glGetUniformLocation(compositeProgram.GetShaderID(), "exposure"), bloomExposure);
+		glUniform1f(glGetUniformLocation(compositeProgram.GetShaderID(), "bloomStrength"), bloomStrength);
+		RenderScreenQuad();
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		imgui_manager.EndFrame();//moving this here so that the ImGui overlay is drawn on top of the scene and bloom effect
 
 		mainWindow.swapBuffers();
 	}
@@ -484,11 +630,22 @@ int main() {
 	glDeleteBuffers(1, &emitterConfigUBO);
 	glDeleteBuffers(1, &burstSSBO);
 
+	glDeleteFramebuffers(1, &hdrFBO);
+	glDeleteTextures(2, hdrColorBuffers);
+	glDeleteRenderbuffers(1, &hdrDepthRBO);
+	glDeleteFramebuffers(2, pingpongFBO);
+	glDeleteTextures(2, pingpongBuffers);
+	glDeleteVertexArrays(1, &screenQuadVAO);
+	glDeleteBuffers(1, &screenQuadVBO);
+
 	emitterProgram.ClearShader();
 	particleProgram.ClearShader();
 	burstProgram.ClearShader();
 	shapeInitProgram.ClearShader();
 	clearImmortalProgram.ClearShader();
+
+	blurProgram.ClearShader();
+	compositeProgram.ClearShader();
 
 	shaderList[0].ClearShader();
 

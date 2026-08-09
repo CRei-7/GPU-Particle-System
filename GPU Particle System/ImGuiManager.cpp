@@ -228,6 +228,17 @@ void ImGuiManager::Render()
 			}
 		}
 
+		if (ImGui::CollapsingHeader("Bloom Effects", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (ImGui::DragFloat("glowIntensity", glowIntensity, 0.01f, 0.0f, 10.0f)) {
+			}
+			if (ImGui::DragFloat("quadRadius", quadRadius, 0.001f, 0.0f, 2.0f)) {
+			}
+			if (ImGui::DragFloat("bloomExposure", bloomExposure, 0.01f, 0.0f, 10.0f)) {
+			}
+			if (ImGui::DragFloat("bloomStrength", bloomStrength, 0.01f, 0.0f, 10.0f)) {
+			}
+		}
+
 		//ImGui::BeginGroup();
 		//ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "Settings");
 		//ImGui::Separator();

@@ -169,10 +169,13 @@
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="bloomComposite.frag" />
     <None Include="burst.comp" />
     <None Include="clearImmortal.comp" />
     <None Include="emitter.comp" />
+    <None Include="gaussianBlur.frag" />
     <None Include="particle.comp" />
+    <None Include="screenQuad.vert" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
     <None Include="shapeInit.comp" />

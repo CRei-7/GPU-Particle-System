@@ -78,6 +78,11 @@ public:
 	void SetSpawnRate(float rate) { spawnRate = rate; }
 	void SetBurstCount(float count) { burstCount = count; }
 
+	void SetGlowIntensity(float* ptr) { glowIntensity = ptr; }
+	void SetQuadRadius(float* ptr) { quadRadius = ptr; }
+	void SetBloomExposure(float* ptr) { bloomExposure = ptr; }
+	void SetBloomStrength(float* ptr) { bloomStrength = ptr; }
+
 private:
     ImVec4 clear_color;
     bool show_demo_window = false;
@@ -122,6 +127,11 @@ private:
 
 	float spawnRate = 600.0f;
 	float burstCount = 100.0f;
+
+	float* glowIntensity = nullptr;
+	float* quadRadius = nullptr;
+	float* bloomExposure = nullptr;
+	float* bloomStrength = nullptr;
 };
 
 #endif // IMGUIMANAGER_H
