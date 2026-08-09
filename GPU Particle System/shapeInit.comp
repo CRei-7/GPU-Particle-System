@@ -58,6 +58,11 @@ uniform vec3 shapeOffsets; // Offsets for the shape position
 uniform float maxOffset;
 uniform float roughnessExponent; // Exponent for roughness calculation
 
+uniform vec3 gradientStartPos; // Position of the start gradient
+uniform vec3 gradientEndPos;   // Position of the end gradient
+
+uniform uint gradientMode;
+
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
 
@@ -180,7 +185,17 @@ void main() {
     Particle p;
     p.position = vec4(config.position.xyz + local + randomOffsets + roughness, config.size);
     p.velocity = vec4(randomFloat(hash(seed+16u), -1.0, 1.0), randomFloat(hash(seed+17u), -1.0, 1.0), randomFloat(hash(seed+18u), -1.0, 1.0), 0.0); // starts at rest;
-    p.color    = config.startColor;
+    
+    vec3 axis = gradientEndPos - gradientStartPos;
+    float axisLengthSquared = dot(axis, axis);
+    float ratio;
+
+    if(gradientMode == 0)
+        ratio = (axisLengthSquared > 0.0001) ? dot(p.position.xyz - gradientStartPos, axis) / axisLengthSquared : 0.0;
+    if(gradientMode == 1)
+        ratio = length(local) / axisLengthSquared;
+
+    p.color    = mix(config.startColor, config.endColor, ratio);
     p.life     = 1.0; // unused as these particles are immortal
     p.maxLife  = 1.0; // unused as these particles are immortal
     p.flags    = vec2(1.0, 0.0); // mark as immortal

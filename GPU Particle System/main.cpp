@@ -67,7 +67,7 @@ gpu::EmitterConfig ToGpuEmitterConfig(const EmitterConfig& src, const gpu::Emitt
 	return out;
 }
 
-const int MAX_PARTICLES = 30000;
+const int MAX_PARTICLES = 100000;
 
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 720;
@@ -478,6 +478,9 @@ int main() {
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "maxParticles"), MAX_PARTICLES);
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "shapeParticleCount"), imgui_manager.GetShapeParticleCount());
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "frameSeed"), frameCount);
+			glUniform3f(glGetUniformLocation(shapeInitComputeShader, "gradientStartPos"), imgui_manager.GetGradientStart().x, imgui_manager.GetGradientStart().y, imgui_manager.GetGradientStart().z);
+			glUniform3f(glGetUniformLocation(shapeInitComputeShader, "gradientStartPos"), imgui_manager.GetGradientEnd().x, imgui_manager.GetGradientEnd().y, imgui_manager.GetGradientEnd().z);
+			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "gradientMode"), imgui_manager.GetSelectedGradientMode());
 
 			if(imgui_manager.GetShapeHollowEnabled()) {
 				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "hollowSize"), imgui_manager.GetShapeHollowSize());

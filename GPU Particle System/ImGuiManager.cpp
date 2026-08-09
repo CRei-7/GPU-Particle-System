@@ -8,7 +8,7 @@ ImGuiManager::ImGuiManager()
 	imguiEmitterConfig.position = glm::vec3(0.0f, 0.0f, 0.0f);
 	imguiEmitterConfig.direction = glm::vec3(0.0f, 1.0f, -1.0f);
 	imguiEmitterConfig.startColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	imguiEmitterConfig.endColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	imguiEmitterConfig.endColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
 	imguiEmitterConfig.size = 1.0f;
 	imguiEmitterConfig.speed = 1.0f;
 	imguiEmitterConfig.speedVariation = 0.0f;
@@ -112,6 +112,8 @@ void ImGuiManager::Render()
 
 		if (selectedMode >= (int)ParticleGenMode::ShapeSphere)
 		{
+			//imguiEmitterConfig.endColor.a = 1.0f;
+
 			ImGui::SliderFloat("Shape Size", &imguiEmitterConfig.size, 0.1f, 10.0f);
 			ImGui::SliderInt("Shape Particle Count", &shapeParticleCount, 1, maxParticles);
 			ImGui::Checkbox("Create Hollow Shape", &shapeHollowEnabled);
@@ -146,6 +148,24 @@ void ImGuiManager::Render()
 			else {
 				maxOffset = 0.0f; // Reset max offset when roughness is disabled
 				roughnessExponent = 1.0f; // Reset roughness exponent when roughness is disabled
+			}
+
+			if (ImGui::RadioButton("Linear Gradient", selectedGradientMode == 0))
+				selectedGradientMode = 0;
+
+			ImGui::SameLine();
+
+			if (ImGui::RadioButton("Radial Gradient", selectedGradientMode == 1))
+				selectedGradientMode = 1;
+
+			float gradSPos[3] = { gradientStartPos.x, gradientStartPos.y, gradientStartPos.z };
+			if (ImGui::DragFloat3("Gradient Start Position", gradSPos, 0.1f)) {
+				gradientStartPos = glm::vec3(gradSPos[0], gradSPos[1], gradSPos[2]);
+			};
+
+			float gradEPos[3] = { gradientEndPos.x, gradientEndPos.y, gradientEndPos.z };
+			if (ImGui::DragFloat3("Gradient End Position", gradEPos, 0.1f)) {
+				gradientEndPos = glm::vec3(gradEPos[0], gradEPos[1], gradEPos[2]);
 			}
 
 			if (ImGui::Button("Regenerate Shape"))
@@ -229,13 +249,13 @@ void ImGuiManager::Render()
 		}
 
 		if (ImGui::CollapsingHeader("Bloom Effects", ImGuiTreeNodeFlags_DefaultOpen)) {
-			if (ImGui::DragFloat("glowIntensity", glowIntensity, 0.01f, 0.0f, 10.0f)) {
+			if (ImGui::DragFloat("Glow Intensity", glowIntensity, 0.01f, 0.0f, 10.0f)) {
 			}
-			if (ImGui::DragFloat("quadRadius", quadRadius, 0.001f, 0.0f, 2.0f)) {
+			if (ImGui::DragFloat("Quad Radius", quadRadius, 0.001f, 0.0f, 2.0f)) {
 			}
-			if (ImGui::DragFloat("bloomExposure", bloomExposure, 0.01f, 0.0f, 10.0f)) {
+			if (ImGui::DragFloat("Bloom Exposure", bloomExposure, 0.01f, 0.0f, 10.0f)) {
 			}
-			if (ImGui::DragFloat("bloomStrength", bloomStrength, 0.01f, 0.0f, 10.0f)) {
+			if (ImGui::DragFloat("Bloom Strength", bloomStrength, 0.01f, 0.0f, 10.0f)) {
 			}
 		}
 

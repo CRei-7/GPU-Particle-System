@@ -83,6 +83,11 @@ public:
 	void SetBloomExposure(float* ptr) { bloomExposure = ptr; }
 	void SetBloomStrength(float* ptr) { bloomStrength = ptr; }
 
+	glm::vec3 GetGradientStart() { return gradientStartPos; }
+	glm::vec3 GetGradientEnd() { return gradientEndPos; }
+
+	int GetSelectedGradientMode() { return selectedGradientMode; }
+
 private:
     ImVec4 clear_color;
     bool show_demo_window = false;
@@ -132,6 +137,11 @@ private:
 	float* quadRadius = nullptr;
 	float* bloomExposure = nullptr;
 	float* bloomStrength = nullptr;
+
+	glm::vec3 gradientStartPos = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 gradientEndPos = glm::vec3(1.0f, 1.0f, 1.0f);
+
+	int selectedGradientMode = 0;
 };
 
 #endif // IMGUIMANAGER_H
