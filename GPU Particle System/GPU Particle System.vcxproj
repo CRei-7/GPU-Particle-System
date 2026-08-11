@@ -169,6 +169,8 @@
     <None Include="shader.frag" />
     <None Include="shader.vert" />
     <None Include="shapeInit.comp" />
+    <None Include="trail.frag" />
+    <None Include="trail.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -46,6 +46,10 @@ layout(std430, binding = 4) buffer BurstBuffer {
     vec4 burstPositions[10000];    // Positions where bursts should occur
 };
 
+layout(std430, binding = 5) buffer TrailBuffer{
+    vec4 trailPoints[];
+};
+
 layout(std140, binding = 0) uniform EmitterUniform {
     EmitterConfig config;
 };
@@ -62,6 +66,8 @@ uniform vec3 gradientStartPos; // Position of the start gradient
 uniform vec3 gradientEndPos;   // Position of the end gradient
 
 uniform uint gradientMode;
+
+uniform uint trailSamples;
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -201,5 +207,9 @@ void main() {
     p.flags    = vec2(1.0, 0.0); // mark as immortal
 
     particles[particleIndex] = p;
+
+    for(uint s = 0u; s < trailSamples; ++s){
+        trailPoints[s * maxParticles + particleIndex] = vec4(0.0);    
+    }
 }
  

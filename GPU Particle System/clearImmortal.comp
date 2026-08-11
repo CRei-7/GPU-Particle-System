@@ -23,7 +23,12 @@ layout(std430, binding = 2) buffer FreeListBuffer {
     int freeList[];
 };
 
+layout(std430, binding = 5) buffer TrailBuffer{
+    vec4 trailPoints[];
+};
+
 uniform uint maxParticles;
+uniform uint trailSamples;
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
@@ -39,6 +44,11 @@ void main() {
         p.maxLife = -1.0; // mark free
         p.flags = vec2(0.0);
         p.position = vec4(0.0, 0.0, 0.0, 0.0);
+
+        for(uint s = 0u; s < trailSamples; ++s){
+            trailPoints[s * maxParticles + index] = vec4(0.0);    
+        }
+
         particles[index] = p;
     } else {
         atomicAdd(freeListHead, uint(-1)); // revert if out of bounds

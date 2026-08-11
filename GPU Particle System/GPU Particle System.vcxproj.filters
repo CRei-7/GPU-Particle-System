@@ -98,5 +98,7 @@
     <None Include="bloomComposite.frag" />
     <None Include="gaussianBlur.frag" />
     <None Include="screenQuad.vert" />
+    <None Include="trail.vert" />
+    <None Include="trail.frag" />
   </ItemGroup>
 </Project>

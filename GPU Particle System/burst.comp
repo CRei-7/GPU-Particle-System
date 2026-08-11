@@ -46,12 +46,18 @@ layout(std430, binding = 4) buffer BurstBuffer {
     vec4 burstPositions[10000];
 };
 
+layout(std430, binding = 5) buffer TrailBuffer{
+    vec4 trailPoints[];
+};
+
 layout(std140, binding = 0) uniform EmitterUniform {
     EmitterConfig config;
 };
 
 uniform uint maxParticles;
 uniform uint frameSeed; // Seed based on frame count for randomness
+
+uniform uint trailSamples;
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -109,7 +115,7 @@ void main() {
     p.position = vec4(burstPos, config.size);
     
     // Random spherical direction for burst particles
-    uint seed = hash(SEED_BASE ^ (index * 2654435761u) ^ hash(frameSeed));
+    uint seed = hash(SEED_BASE ^ (index * 10u) ^ hash(frameSeed));
     vec3 dir = randomSphereDirection(seed);
     p.velocity = vec4(dir * config.speed, 0.0); // 0.0 for no further bursts
     
@@ -119,4 +125,8 @@ void main() {
     p.flags = vec2(0.0, 0.0);
     
     particles[particleIndex] = p;
+
+    for(uint s = 0u; s < trailSamples; ++s){
+        trailPoints[s * maxParticles + particleIndex] = vec4(0.0);    
+    }
 }

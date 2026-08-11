@@ -81,6 +81,9 @@ public:
 
 	int GetSelectedGradientMode() { return selectedGradientMode; }
 
+	void SetTrailWidth(float* ptr) { trailWidth = ptr; }
+	void SetTrailAlpha(float* ptr) { trailAlpha = ptr; }
+
 private:
     ImVec4 clear_color;
     bool show_demo_window = false;
@@ -134,6 +137,9 @@ private:
 	glm::vec3 gradientEndPos = glm::vec3(1.0f, 1.0f, 1.0f);
 
 	int selectedGradientMode = 0;
+
+	float* trailWidth = nullptr;
+	float* trailAlpha = nullptr;
 };
 
 #endif // IMGUIMANAGER_H

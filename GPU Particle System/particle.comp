@@ -46,6 +46,10 @@ layout(std430, binding = 4) buffer BurstBuffer {
     vec4 burstPositions[10000];    // Positions where bursts should occur
 };
 
+layout(std430, binding = 5) buffer TrailBuffer{
+    vec4 trailPoints[];
+};
+
 layout(std140, binding = 0) uniform EmitterUniform {
     EmitterConfig config;
 };
@@ -56,6 +60,10 @@ uniform bool shapeRotationEnabled;
 uniform float angularVelocity;
 uniform int motionEnabled; 
 uniform float hollowSize; // Size of the hollow region for shape generation
+
+uniform uint trailSamples;
+uniform uint trailHead;
+uniform bool trailWrite;
 
 const float PI = 3.14159265359;
 const uint SEED_BASE = 42u;
@@ -91,10 +99,11 @@ vec3 randomSphereDirection(uint seed) {
 void confineSphere(inout vec3 pos, inout vec3 vel, vec3 center, float radius, float hollowRadius){
     vec3 relative = pos - center;
     float dist = length(relative);
+
     if((dist > radius || dist < hollowRadius) && dist > 0.0001){
         vec3 normal = relative / dist;
         pos = center + normal * radius;
-        vel = reflect(vel, normal);
+        vel = reflect(vel, normal) * 0.9;
     }
 }
 
@@ -106,7 +115,7 @@ void confineDisc(inout vec3 pos, inout vec3 vel, vec3 center, float radius, floa
     if ((dist > radius || dist < hollowRadius) && dist > 0.0001) {
         vec2 normal = relative / dist;
         pos.xz = center.xz + normal * radius;
-        vel.xz = reflect(vel.xz, normal);
+        vel.xz = reflect(vel.xz, normal) * 0.9;
     }
 }
 
@@ -115,15 +124,15 @@ void confineCube(inout vec3 pos, inout vec3 vel, vec3 center, float halfExtent, 
 
     if (abs(relative.x) > halfExtent) {
         relative.x = sign(relative.x) * halfExtent;
-        vel.x = -vel.x;
+        vel.x = -vel.x * 0.9;
     }
     if (abs(relative.y) > halfExtent) {
         relative.y = sign(relative.y) * halfExtent;
-        vel.y = -vel.y;
+        vel.y = -vel.y * 0.9;
     }
     if (abs(relative.z) > halfExtent) {
         relative.z = sign(relative.z) * halfExtent;
-        vel.z = -vel.z;
+        vel.z = -vel.z * 0.9;
     }
     
     vec3 absRel = abs(relative);
@@ -131,13 +140,13 @@ void confineCube(inout vec3 pos, inout vec3 vel, vec3 center, float halfExtent, 
     if (absRel.x < hollowHalfExtent && absRel.y < hollowHalfExtent && absRel.z < hollowHalfExtent) {
         if (absRel.x >= absRel.y && absRel.x >= absRel.z) {
             relative.x = sign(relative.x) * hollowHalfExtent;
-            vel.x = -vel.x;
+            vel.x = -vel.x * 0.9;
         } else if (absRel.y >= absRel.x && absRel.y >= absRel.z) {
             relative.y = sign(relative.y) * hollowHalfExtent;
-            vel.y = -vel.y;
+            vel.y = -vel.y * 0.9;
         } else {
             relative.z = sign(relative.z) * hollowHalfExtent;
-            vel.z = -vel.z;
+            vel.z = -vel.z * 0.9;
         }
     }
     
@@ -187,6 +196,10 @@ void main() {
                 atomicAdd(particleCount, uint(-1));
                 p.maxLife = -1.0; // Mark as free
                 p.flags = vec2(0.0);
+
+                for(uint s = 0u; s < trailSamples; ++s){
+                    trailPoints[s * maxParticles + index] = vec4(0.0);    
+                }
             }
             else{
                 atomicAdd(freeListHead, uint(-1)); // Revert increment if out of bounds
@@ -218,6 +231,10 @@ void main() {
             rotatedPos.z = pos.x * sinAngle + pos.z * cosAngle;
             p.position.xyz = rotatedPos + config.position.xyz; // Translate back
         }
+    }
+
+    if(trailWrite && p.maxLife > 0.0){
+        trailPoints[trailHead * maxParticles + index] = vec4(p.position.xyz, 1.0);
     }
     
     particles[index] = p;

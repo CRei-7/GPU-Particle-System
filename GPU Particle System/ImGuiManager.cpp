@@ -18,7 +18,7 @@ ImGuiManager::ImGuiManager()
 	emitterConfig.spawnRate = 600.0f;
 	emitterConfig.emitterType = selectedMode;
 	emitterConfig.deltaTime = 0.0f;
-	emitterConfig.burstCount = 100;
+	emitterConfig.burstCount = 50;
 	emitterConfig.padding = glm::vec2(0.0f);
 
 	defaultConfig = emitterConfig;
@@ -27,6 +27,7 @@ ImGuiManager::ImGuiManager()
 	continuousConfig.emitterType = (int)ParticleGenMode::ContinuousEmitter;
 
 	burstConfig = emitterConfig;
+	burstConfig.spawnRate = 10.0f;
 	burstConfig.emitterType = (int)ParticleGenMode::BurstEmitter;
 	burstConfig.direction = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
 
@@ -256,6 +257,11 @@ void ImGuiManager::Render()
 			if (quadRadius)     ImGui::DragFloat("Quad Radius", quadRadius, 0.001f, 0.0f, 2.0f);
 			if (bloomExposure)  ImGui::DragFloat("Bloom Exposure", bloomExposure, 0.01f, 0.0f, 10.0f);
 			if (bloomStrength)  ImGui::DragFloat("Bloom Strength", bloomStrength, 0.01f, 0.0f, 10.0f);
+		}
+
+		if (ImGui::CollapsingHeader("Trail Effects", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (trailWidth)  ImGui::DragFloat("Trail Width", trailWidth, 0.001f, 0.0f, 1.0f);
+			if (trailAlpha)  ImGui::DragFloat("Trail Alpha", trailAlpha, 0.001f, 0.0f, 1.0f);
 		}
 
 		ImGui::PopTextWrapPos();

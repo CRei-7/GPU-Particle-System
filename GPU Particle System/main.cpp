@@ -11,12 +11,7 @@
 #include "Window.h"
 #include "Shader.h"
 #include "Camera.h"
-//#include "ParticlePool.h"
-//#include "Emitter.h"
 #include "ImGuiManager.h"
-//#include "ContinuousEmitter.h"
-//#include "EmitterConfig.h"
-//#include "BurstEmitter.h"
 #include "GPUStructures.h"
 
 #include "ParticleGenMode.h"
@@ -34,6 +29,8 @@ const int MAX_PARTICLES = 100000;
 const unsigned int SCR_WIDTH = 1080;
 const unsigned int SCR_HEIGHT = 720;
 
+const int TRAIL_SAMPLES = 16;
+
 // Vertex Shader
 static const char* vShader = "./shader.vert";
 static const char* fShader = "./shader.frag";
@@ -48,8 +45,12 @@ static const char* screenQuadVShader = "./screenQuad.vert";
 static const char* blurFShader = "./gaussianBlur.frag";
 static const char* compositeFShader = "./bloomComposite.frag";
 
+static const char* trailVShader = "./trail.vert";
+static const char* trailFShader = "./trail.frag";
+
+
 std::vector<Shader> shaderList;
-Shader emitterProgram, particleProgram, burstProgram, shapeInitProgram, clearImmortalProgram, blurProgram, compositeProgram;
+Shader emitterProgram, particleProgram, burstProgram, shapeInitProgram, clearImmortalProgram, blurProgram, compositeProgram, trailProgram;
 GLuint emitterComputeShader = 0, particleComputeShader = 0, burstComputeShader = 0, shapeInitComputeShader = 0, clearImmortalComputeShader = 0;
 
 GLuint uniformModel = 0, uniformProjection = 0, uniformView = 0;
@@ -62,11 +63,15 @@ GLuint pingpongFBO[2] = { 0, 0 };//ping pong is used so that we can apply multip
 GLuint pingpongBuffers[2] = { 0, 0 };
 GLuint screenQuadVAO = 0, screenQuadVBO = 0;
 
+
 float glowIntensity = 3.0f;
 float quadRadius = 0.005f; 
 float bloomExposure = 1.0f;
 float bloomStrength = 1.0f;
 const unsigned int BLUR_PASSES = 10;
+
+float trailWidth = 0.005;
+float trailAlpha = 0.6;
 
 ImGuiManager imgui_manager;
 const char* glsl_version = "#version 430";
@@ -79,6 +84,9 @@ GLuint accumumulatorSSBO = 0;
 GLuint emitterConfigUBO = 0;
 GLuint burstSSBO = 0;
 
+GLuint trailSSBO = 0;
+GLuint trailVAO = 0;
+
 void CreateShaders() {
 	Shader* shaderProgram = new Shader();
 	shaderProgram->CreateFromFiles(vShader, fShader);
@@ -86,6 +94,7 @@ void CreateShaders() {
 
 	blurProgram.CreateFromFiles(screenQuadVShader, blurFShader);
 	compositeProgram.CreateFromFiles(screenQuadVShader, compositeFShader);
+	trailProgram.CreateFromFiles(trailVShader, trailFShader);
 }
 
 void InitializeBloomFramebuffers() {
@@ -228,9 +237,20 @@ void InitializeGPUBuffers() {
 	//Burst Buffer
 	glGenBuffers(1, &burstSSBO);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, burstSSBO);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, 16 + 10000 * sizeof(glm::vec4), nullptr, GL_DYNAMIC_DRAW); //16 bytes for count + 10000 particles * 16 bytes each (vec4)
+	std::vector<char> burstInit(16 + 10000 * sizeof(glm::vec4), 0);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, burstInit.size(), nullptr, GL_DYNAMIC_DRAW); //16 bytes for count + 10000 particles * 16 bytes each (vec4)
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, burstSSBO);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	//Trail SSBO
+	glGenBuffers(1, &trailSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, trailSSBO);
+	std::vector<glm::vec4> trailInit(size_t(MAX_PARTICLES) * TRAIL_SAMPLES, glm::vec4(0.0f));
+	glBufferData(GL_SHADER_STORAGE_BUFFER, trailInit.size() * sizeof(glm::vec4), trailInit.data(), GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, trailSSBO);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	glGenVertexArrays(1, &trailVAO);
 
 	//Emitter Config UBO
 	glGenBuffers(1, &emitterConfigUBO);
@@ -322,7 +342,14 @@ int main() {
 	imgui_manager.SetBloomExposure(&bloomExposure);
 	imgui_manager.SetBloomStrength(&bloomStrength);
 
+	imgui_manager.SetTrailWidth(&trailWidth);
+	imgui_manager.SetTrailAlpha(&trailAlpha);
+
 	int lastMode = -1;//Tracks previously active mode, -1 = no mode active
+
+	constexpr float TRAIL_INTERVAL = 1.0f / 60.0f;
+	static float trailAccum = 0.0f;
+	static uint32_t trailHead = 0;
 
 	//std::cout << particlePool.particles[0].color.a << std::endl;
 
@@ -353,6 +380,15 @@ int main() {
 		glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 		//std::cout << "Particle Count: " << countData << std::endl;
 
+		//Trail Accumulation
+		trailAccum += deltaTime;
+		bool trailWrite = false;
+		if (trailAccum >= TRAIL_INTERVAL) {
+			trailAccum = fmodf(trailAccum, TRAIL_INTERVAL);
+			trailHead = (trailHead + 1) % TRAIL_SAMPLES;
+			trailWrite = true;
+		}
+
 		bool wasShapeMode = IsShapeMode(lastMode);
 		bool isShapeMode = IsShapeMode(selectedMode);
 		bool regenerate = imgui_manager.RegenerateRequested();
@@ -364,6 +400,7 @@ int main() {
 			//std::cout << "Working" << std::endl;
 			glUseProgram(clearImmortalComputeShader);
 			glUniform1ui(glGetUniformLocation(clearImmortalComputeShader, "maxParticles"), MAX_PARTICLES);
+			glUniform1ui(glGetUniformLocation(clearImmortalComputeShader, "trailSamples"), TRAIL_SAMPLES);
 			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
@@ -373,10 +410,10 @@ int main() {
 			glUseProgram(emitterComputeShader);
 			glUniform1ui(glGetUniformLocation(emitterComputeShader, "maxParticles"), MAX_PARTICLES);
 			glUniform1ui(glGetUniformLocation(emitterComputeShader, "frameSeed"), frameCount);
+			glUniform1ui(glGetUniformLocation(emitterComputeShader, "trailSamples"), TRAIL_SAMPLES);
 			glDispatchCompute(1, 1, 1); // Only one thread group for serial spawning
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-			//Dispatches burst compute shader if burst emitter is selected
 			uint32_t zero = 0;// First reset burst counter
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, burstSSBO);
 			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(uint32_t), &zero);
@@ -384,17 +421,11 @@ int main() {
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 			//Dispatches particle compute shader
-			glUseProgram(particleComputeShader);
-			glUniform1f(glGetUniformLocation(particleComputeShader, "gravity"), gravity);
-			glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
-			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
-
-			glUseProgram(burstComputeShader);
-			glUniform1ui(glGetUniformLocation(burstComputeShader, "maxParticles"), MAX_PARTICLES);
-			glUniform1ui(glGetUniformLocation(burstComputeShader, "frameSeed"), frameCount);
-			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
-			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+			//glUseProgram(particleComputeShader);
+			//glUniform1f(glGetUniformLocation(particleComputeShader, "gravity"), gravity);
+			//glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
+			//glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
+			//glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 		} 
 		else if (needsInit) {
 			glUseProgram(shapeInitComputeShader);
@@ -425,7 +456,7 @@ int main() {
 				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "maxOffset"), 0.0f);
 				glUniform1f(glGetUniformLocation(shapeInitComputeShader, "roughnessExponent"), 1.0f);
 			}
-
+			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "trailSamples"), TRAIL_SAMPLES);
 			glDispatchCompute((imgui_manager.GetShapeParticleCount() + 63) / 64, 1, 1);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		}
@@ -450,9 +481,21 @@ int main() {
 		else {
 			glUniform1f(glGetUniformLocation(particleComputeShader, "hollowSize"), 0.0f);
 		}
+		glUniform1ui(glGetUniformLocation(particleComputeShader, "trailSamples"), TRAIL_SAMPLES);
+		glUniform1ui(glGetUniformLocation(particleComputeShader, "trailHead"), trailHead);
+		glUniform1ui(glGetUniformLocation(particleComputeShader, "trailWrite"), trailWrite ? 1 : 0 );
 
 		glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+
+		if (!isShapeMode) {
+			glUseProgram(burstComputeShader);
+			glUniform1ui(glGetUniformLocation(burstComputeShader, "maxParticles"), MAX_PARTICLES);
+			glUniform1ui(glGetUniformLocation(burstComputeShader, "frameSeed"), frameCount);
+			glUniform1ui(glGetUniformLocation(burstComputeShader, "trailSamples"), TRAIL_SAMPLES);
+			glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1);
+			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
+		}
 
 		imgui_manager.BeginFrame();
 
@@ -502,6 +545,31 @@ int main() {
 
 		glUniform1f(glGetUniformLocation(shaderList[0].GetShaderID(), "glowIntensity"), glowIntensity);
 		glUniform1f(glGetUniformLocation(shaderList[0].GetShaderID(), "quadRadius"), quadRadius);
+
+		trailProgram.UseShader();
+		{
+			GLuint tid = trailProgram.GetShaderID();
+
+			// Derive the camera position from the inverse view matrix
+			glm::vec3 camPos = glm::vec3(glm::inverse(viewMat)[3]);
+
+			glUniformMatrix4fv(glGetUniformLocation(tid, "view"), 1, GL_FALSE, glm::value_ptr(viewMat));
+			glUniformMatrix4fv(glGetUniformLocation(tid, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+			glUniform3fv(glGetUniformLocation(tid, "cameraPos_worldspace"), 1, glm::value_ptr(camPos));
+
+			glUniform1ui(glGetUniformLocation(tid, "maxParticles"), MAX_PARTICLES);
+			glUniform1ui(glGetUniformLocation(tid, "trailSamples"), TRAIL_SAMPLES);
+			glUniform1ui(glGetUniformLocation(tid, "trailHead"), trailHead);
+			glUniform1f(glGetUniformLocation(tid, "trailWidth"), trailWidth);
+			glUniform1f(glGetUniformLocation(tid, "trailAlpha"), trailAlpha);
+			glUniform1f(glGetUniformLocation(tid, "glowIntensity"), glowIntensity);
+
+			glBindVertexArray(trailVAO);
+			glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, TRAIL_SAMPLES * 2, MAX_PARTICLES);
+			glBindVertexArray(0);
+		}
+
+		shaderList[0].UseShader();
 
 		glBindVertexArray(VAO);
 		glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, MAX_PARTICLES);
@@ -558,6 +626,7 @@ int main() {
 	glDeleteBuffers(1, &accumumulatorSSBO);
 	glDeleteBuffers(1, &emitterConfigUBO);
 	glDeleteBuffers(1, &burstSSBO);
+	glDeleteBuffers(1, &trailSSBO);
 
 	glDeleteFramebuffers(1, &hdrFBO);
 	glDeleteTextures(2, hdrColorBuffers);
@@ -567,6 +636,8 @@ int main() {
 	glDeleteVertexArrays(1, &screenQuadVAO);
 	glDeleteBuffers(1, &screenQuadVBO);
 
+	glDeleteVertexArrays(1, &trailVAO);
+
 	emitterProgram.ClearShader();
 	particleProgram.ClearShader();
 	burstProgram.ClearShader();
@@ -575,6 +646,8 @@ int main() {
 
 	blurProgram.ClearShader();
 	compositeProgram.ClearShader();
+
+	trailProgram.ClearShader();
 
 	shaderList[0].ClearShader();
 
