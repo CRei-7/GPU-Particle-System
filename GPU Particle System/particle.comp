@@ -186,6 +186,7 @@ void main() {
                 freeList[slot] = int(index);
                 atomicAdd(particleCount, uint(-1));
                 p.maxLife = -1.0; // Mark as free
+                p.flags = vec2(0.0);
             }
             else{
                 atomicAdd(freeListHead, uint(-1)); // Revert increment if out of bounds

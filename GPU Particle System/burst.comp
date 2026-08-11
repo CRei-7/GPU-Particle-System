@@ -116,6 +116,7 @@ void main() {
     p.color = config.startColor;
     p.life = config.particleLifetime * randomFloat(hash(seed + 40u), 0.3, 0.5);
     p.maxLife = p.life;
+    p.flags = vec2(0.0, 0.0);
     
     particles[particleIndex] = p;
 }

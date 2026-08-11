@@ -5,21 +5,62 @@ ImGuiManager::ImGuiManager()
 	: clear_color(ImVec4(0.45f, 0.55f, 0.60f, 1.00f)), show_demo_window(true), show_another_window(false)
 {
 	// sensible defaults for the ImGui-side emitter config
-	imguiEmitterConfig.position = glm::vec3(0.0f, 0.0f, 0.0f);
-	imguiEmitterConfig.direction = glm::vec3(0.0f, 1.0f, -1.0f);
-	imguiEmitterConfig.startColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-	imguiEmitterConfig.endColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
-	imguiEmitterConfig.size = 1.0f;
-	imguiEmitterConfig.speed = 1.0f;
-	imguiEmitterConfig.speedVariation = 0.0f;
-	imguiEmitterConfig.spread = 30.0f;
-	imguiEmitterConfig.particleLifetime = 5.0f;
-	imguiEmitterConfig.particleLifetimeVariation = 0.0f;
+	emitterConfig.position = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+	emitterConfig.direction = glm::vec4(0.0f, 1.0f, -1.0f, 0.0f);
+	emitterConfig.startColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	emitterConfig.endColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
+	emitterConfig.size = 1.0f;
+	emitterConfig.speed = 1.0f;
+	emitterConfig.speedVariation = 0.0f;
+	emitterConfig.spread = 30.0f;
+	emitterConfig.particleLifetime = 5.0f;
+	emitterConfig.particleLifetimeVariation = 0.0f;
+	emitterConfig.spawnRate = 600.0f;
+	emitterConfig.emitterType = selectedMode;
+	emitterConfig.deltaTime = 0.0f;
+	emitterConfig.burstCount = 100;
+	emitterConfig.padding = glm::vec2(0.0f);
+
+	defaultConfig = emitterConfig;
+
+	continuousConfig = emitterConfig;
+	continuousConfig.emitterType = (int)ParticleGenMode::ContinuousEmitter;
+
+	burstConfig = emitterConfig;
+	burstConfig.emitterType = (int)ParticleGenMode::BurstEmitter;
+	burstConfig.direction = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+
+	shapeConfig = emitterConfig;
+	shapeConfig.emitterType = (int)ParticleGenMode::ShapeSphere;
+
 }
 
 ImGuiManager::~ImGuiManager()
 {
 }
+
+void ImGuiManager::StoreConfigForMode(int mode)
+{
+	if (mode == (int)ParticleGenMode::ContinuousEmitter)
+		continuousConfig = emitterConfig;
+	else if (mode == (int)ParticleGenMode::BurstEmitter)
+		burstConfig = emitterConfig;
+	else
+		shapeConfig = emitterConfig;
+}
+
+void ImGuiManager::LoadConfigForMode(int mode)
+{
+	if (mode == (int)ParticleGenMode::ContinuousEmitter)
+		emitterConfig = continuousConfig;
+	else if (mode == (int)ParticleGenMode::BurstEmitter)
+		emitterConfig = burstConfig;
+	else
+		emitterConfig = shapeConfig;
+
+	emitterConfig.emitterType = mode;
+}
+
 
 void ImGuiManager::Init(GLFWwindow* window, const char* glsl_version, int MAX_PARTICLES)
 {
@@ -101,24 +142,20 @@ void ImGuiManager::Render()
 		const char* modeNames[] = { "Continuous Emitter", "Burst Emitter", "Sphere", "Disc", "Cube" };
 		if (ImGui::Combo("Mode", &selectedMode, modeNames, IM_ARRAYSIZE(modeNames)))
 		{
-			if (selectedMode == 0 && continuousEmitter)
-				activeEmitter = continuousEmitter;
-			else if (selectedMode == 1 && burstEmitter)
-				activeEmitter = burstEmitter;
-
-			if (activeEmitter)
-				imguiEmitterConfig = activeEmitter->getConfig();
+			StoreConfigForMode(lastSelectedMode);
+			LoadConfigForMode(selectedMode);
+			lastSelectedMode = selectedMode;
 		}
 
 		if (selectedMode >= (int)ParticleGenMode::ShapeSphere)
 		{
 			//imguiEmitterConfig.endColor.a = 1.0f;
 
-			ImGui::SliderFloat("Shape Size", &imguiEmitterConfig.size, 0.1f, 10.0f);
+			ImGui::SliderFloat("Shape Size", &emitterConfig.size, 0.1f, 10.0f);
 			ImGui::SliderInt("Shape Particle Count", &shapeParticleCount, 1, maxParticles);
 			ImGui::Checkbox("Create Hollow Shape", &shapeHollowEnabled);
 			if (shapeHollowEnabled) {
-				ImGui::SliderFloat("Hollow Size", &shapeHollowSize, 0.0f, imguiEmitterConfig.size - 0.01f);
+				ImGui::SliderFloat("Hollow Size", &shapeHollowSize, 0.0f, emitterConfig.size - 0.01f);
 			}
 			else {
 				shapeHollowSize = 0.0f; // Reset hollow size when hollow is disabled
@@ -176,97 +213,55 @@ void ImGuiManager::Render()
 		// Emitter controls
 		if (ImGui::CollapsingHeader("Emitter Configuration", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			// Position
-			float pos[3] = { imguiEmitterConfig.position.x, imguiEmitterConfig.position.y, imguiEmitterConfig.position.z };
-			if (ImGui::DragFloat3("Position", pos, 0.1f)) {
-				imguiEmitterConfig.position = glm::vec3(pos[0], pos[1], pos[2]);
+			ImGui::DragFloat3("Position", glm::value_ptr(emitterConfig.position), 0.1f);
+
+			if (ImGui::DragFloat3("Direction", glm::value_ptr(emitterConfig.direction), 0.1f))
+			{
+				glm::vec3 dir(emitterConfig.direction);
+				float len = glm::length(dir);
+				if (len > 1e-6f)                      // dragging to (0,0,0) used to produce NaN
+					emitterConfig.direction = glm::vec4(dir / len, 0.0f);
 			}
 
-			// Direction
-			float dir[3] = { imguiEmitterConfig.direction.x, imguiEmitterConfig.direction.y, imguiEmitterConfig.direction.z };
-			if (ImGui::DragFloat3("Direction", dir, 0.1f)) {
-				imguiEmitterConfig.direction = glm::normalize(glm::vec3(dir[0], dir[1], dir[2]));
-			}
+			ImGui::ColorEdit4("Start Color", glm::value_ptr(emitterConfig.startColor));
+			ImGui::ColorEdit4("End Color", glm::value_ptr(emitterConfig.endColor));
 
-			// Colors
-			float startColor[4] = { imguiEmitterConfig.startColor.r, imguiEmitterConfig.startColor.g, imguiEmitterConfig.startColor.b, imguiEmitterConfig.startColor.a };
-			if (ImGui::ColorEdit4("Start Color", startColor)) {
-				imguiEmitterConfig.startColor = glm::vec4(startColor[0], startColor[1], startColor[2], startColor[3]);
-			}
+			ImGui::DragFloat("Speed", &emitterConfig.speed, 0.1f, 0.0f, 1000.0f);
+			ImGui::DragFloat("Speed Variation", &emitterConfig.speedVariation, 0.01f, 0.0f, 1000.0f);
 
-			float endColor[4] = { imguiEmitterConfig.endColor.r, imguiEmitterConfig.endColor.g, imguiEmitterConfig.endColor.b, imguiEmitterConfig.endColor.a };
-			if (ImGui::ColorEdit4("End Color", endColor)) {
-				imguiEmitterConfig.endColor = glm::vec4(endColor[0], endColor[1], endColor[2], endColor[3]);
-			}
+			ImGui::DragFloat("Spread (deg)", &emitterConfig.spread, 0.5f, 0.0f, 180.0f);
 
-			// Speed
-			if (ImGui::DragFloat("Speed", &imguiEmitterConfig.speed, 0.1f, 0.0f, 1000.0f)) {
-			}
-			if (ImGui::DragFloat("Speed Variation", &imguiEmitterConfig.speedVariation, 0.01f, 0.0f, 1000.0f)) {
-			}
+			ImGui::DragFloat("Particle Lifetime", &emitterConfig.particleLifetime, 0.01f, 0.0f, 1000.0f);
+			ImGui::DragFloat("Lifetime Variation", &emitterConfig.particleLifetimeVariation, 0.01f, 0.0f, 1000.0f);
 
-			// Spread
-			if (ImGui::DragFloat("Spread (deg)", &imguiEmitterConfig.spread, 0.5f, 0.0f, 180.0f)) {
-			}
-
-			// Lifetime
-			if (ImGui::DragFloat("Particle Lifetime", &imguiEmitterConfig.particleLifetime, 0.01f, 0.0f, 1000.0f)) {
-			}
-			if (ImGui::DragFloat("Lifetime Variation", &imguiEmitterConfig.particleLifetimeVariation, 0.01f, 0.0f, 1000.0f)) {
-			}
-
-			if(ImGui::DragFloat("Spawn Rate", &spawnRate, 0.1f, 0.0f, 1000.0f)) {
-			}
-			if(ImGui::DragFloat("Burst Count", &burstCount, 1.0f, 1.0f, 1000.0f)) {
-			}
+			ImGui::DragFloat("Spawn Rate", &emitterConfig.spawnRate, 0.1f, 0.0f, 1000.0f);
+			ImGui::DragInt("Burst Count", &emitterConfig.burstCount, 1.0f, 1, 1000);
 
 			ImGui::Separator();
 
-			if (activeEmitter == nullptr)
+			if (ImGui::Button("Reset to Defaults"))
 			{
-				ImGui::TextColored(ImVec4(1, 0.5f, 0.2f, 1.0f), "No active emitter selected");
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Apply (disabled)")) { /*noop*/ }
-			}
-			else
-			{
-				if (ImGui::Button("Apply to Active Emitter"))
-				{
-					ApplyConfigToActiveEmitter();
-				}
-				ImGui::SameLine();
-				if (ImGui::SmallButton("Reset Emitter"))
-				{
-					// pull current emitter state back into the ImGui controls
-					imguiEmitterConfig = activeEmitter->getConfig();
-				}
+				emitterConfig = defaultConfig;
+				emitterConfig.emitterType = selectedMode;
 			}
 		}
 
 		if (ImGui::CollapsingHeader("External Forces", ImGuiTreeNodeFlags_DefaultOpen)) {
-			if (ImGui::DragFloat("Gravity", gravity, 0.01f, 0.0f, 100.0f)) {
-			}
+			if (gravity)
+				ImGui::DragFloat("Gravity", gravity, 0.01f, 0.0f, 100.0f);
 		}
 
 		if (ImGui::CollapsingHeader("Bloom Effects", ImGuiTreeNodeFlags_DefaultOpen)) {
-			if (ImGui::DragFloat("Glow Intensity", glowIntensity, 0.01f, 0.0f, 10.0f)) {
-			}
-			if (ImGui::DragFloat("Quad Radius", quadRadius, 0.001f, 0.0f, 2.0f)) {
-			}
-			if (ImGui::DragFloat("Bloom Exposure", bloomExposure, 0.01f, 0.0f, 10.0f)) {
-			}
-			if (ImGui::DragFloat("Bloom Strength", bloomStrength, 0.01f, 0.0f, 10.0f)) {
-			}
+			if (glowIntensity)  ImGui::DragFloat("Glow Intensity", glowIntensity, 0.01f, 0.0f, 10.0f);
+			if (quadRadius)     ImGui::DragFloat("Quad Radius", quadRadius, 0.001f, 0.0f, 2.0f);
+			if (bloomExposure)  ImGui::DragFloat("Bloom Exposure", bloomExposure, 0.01f, 0.0f, 10.0f);
+			if (bloomStrength)  ImGui::DragFloat("Bloom Strength", bloomStrength, 0.01f, 0.0f, 10.0f);
 		}
 
-		//ImGui::BeginGroup();
-		//ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "Settings");
-		//ImGui::Separator();
-
-		//ImGui::EndGroup();               // properly close the group
 		ImGui::PopTextWrapPos();
 		ImGui::End();
 	}
+
 }
 
 void ImGuiManager::Cleanup()
@@ -310,39 +305,11 @@ bool& ImGuiManager::ShowAnotherWindow()
 	return show_another_window;
 }
 
-void ImGuiManager::SetContinuousEmitter(ContinuousEmitter* emitter) {
-	continuousEmitter = emitter;
-	if (!activeEmitter)
-		activeEmitter = continuousEmitter;
+const gpu::EmitterConfig& ImGuiManager::GetEmitterConfig() const {
+	return emitterConfig;
 }
 
-void ImGuiManager::SetBurstEmitter(BurstEmitter* emitter) {
-	burstEmitter = emitter;
-}
-
-const EmitterConfig& ImGuiManager::GetEmitterConfig() const
+void ImGuiManager::SetEmitterConfig(const gpu::EmitterConfig& config)
 {
-	return imguiEmitterConfig;
-}
-
-void ImGuiManager::SetEmitterConfig(const EmitterConfig& config)
-{
-	imguiEmitterConfig = config;
-}
-
-void ImGuiManager::ApplyConfigToActiveEmitter()
-{
-	if (!activeEmitter) return;
-
-	activeEmitter->setPosition(imguiEmitterConfig.position);
-	activeEmitter->setDirection(imguiEmitterConfig.direction);
-	activeEmitter->setSpeed(imguiEmitterConfig.speed);
-	activeEmitter->setSpeedVariation(imguiEmitterConfig.speedVariation);
-	activeEmitter->setSpread(imguiEmitterConfig.spread);
-	activeEmitter->setParticleLifetime(imguiEmitterConfig.particleLifetime);
-	activeEmitter->setParticleLifetimeVariation(imguiEmitterConfig.particleLifetimeVariation);
-
-	activeEmitter->setStartColor(imguiEmitterConfig.startColor);
-	activeEmitter->setEndColor(imguiEmitterConfig.endColor);
-	activeEmitter->setSize(imguiEmitterConfig.size);
+	emitterConfig = config;
 }

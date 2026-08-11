@@ -14,7 +14,7 @@
 //#include "ParticlePool.h"
 //#include "Emitter.h"
 #include "ImGuiManager.h"
-#include "ContinuousEmitter.h"
+//#include "ContinuousEmitter.h"
 //#include "EmitterConfig.h"
 #include "BurstEmitter.h"
 #include "GPUStructures.h"
@@ -28,44 +28,6 @@ extern "C" {
 
 Window mainWindow;
 Camera camera;
-ParticlePool particlePool;
-
-gpu::EmitterConfig gpuConfig{
-	glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),      // position
-	glm::vec4(0.0f, 1.0f, -1.0f, 0.0f),     // direction
-	glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),      // startColor
-	glm::vec4(1.0f, 1.0f, 1.0f, 0.0f),      // endColor
-	1.0f,                             // size
-	1.0f,                             // speed
-	0.0f,                             // speedVariation
-	30.0f,                            // spread
-	2.0f,                             // particleLifetime
-	0.0f,                             // particleLifetimeVariation
-	600.0f,                           // spawnRate
-	0,                                // emitterType
-	0.01f,                            // deltaTime
-	100,                              // burstCount
-	glm::vec2(0.0f)                   // padding
-};
-
-//ContinuousEmitter continuousEmitter(config, 600.0f);//(config, spawn rate)
-//BurstEmitter burstEmitter(config, 100);
-
-gpu::EmitterConfig ToGpuEmitterConfig(const EmitterConfig& src, const gpu::EmitterConfig& base)
-{
-	gpu::EmitterConfig out = base;
-	out.position = glm::vec4(src.position, 0.0f);
-	out.direction = glm::vec4(src.direction, 0.0f);
-	out.startColor = src.startColor;
-	out.endColor = src.endColor;
-	out.size = src.size;
-	out.speed = src.speed;
-	out.speedVariation = src.speedVariation;
-	out.spread = src.spread;
-	out.particleLifetime = src.particleLifetime;
-	out.particleLifetimeVariation = src.particleLifetimeVariation;
-	return out;
-}
 
 const int MAX_PARTICLES = 100000;
 
@@ -273,7 +235,7 @@ void InitializeGPUBuffers() {
 	//Emitter Config UBO
 	glGenBuffers(1, &emitterConfigUBO);
 	glBindBuffer(GL_UNIFORM_BUFFER, emitterConfigUBO);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(gpu::EmitterConfig), &gpuConfig, GL_DYNAMIC_DRAW);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(gpu::EmitterConfig), &imgui_manager.GetEmitterConfig(), GL_DYNAMIC_DRAW);
 	glBindBufferBase(GL_UNIFORM_BUFFER, 0, emitterConfigUBO);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -285,42 +247,6 @@ int main() {
 	//std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << '\n';
 
 	imgui_manager.Init(mainWindow.getGLFWwindow(), glsl_version, MAX_PARTICLES);
-
-	ContinuousEmitter continuousEmitter(
-		EmitterConfig{
-			glm::vec3(0.0f, 0.0f, 0.0f),            // position
-			glm::vec3(0.0f, 1.0f, -1.0f),           // direction
-			glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),      // startColor
-			glm::vec4(1.0f, 1.0f, 1.0f, 0.0f),      // endColor
-			1.0f,                             // size
-			1.0f,                             // speed
-			0.0f,                             // speedVariation
-			30.0f,                            // spread
-			2.0f,                             // particleLifetime
-			0.0f                              // particleLifetimeVariation
-		},
-		600.0f                                // spawnRate
-	);
-
-	BurstEmitter burstEmitter(
-		EmitterConfig{
-			glm::vec3(0.0f, 0.0f, 0.0f),            // position
-			glm::vec3(0.0f, 1.0f, 0.0f),            // direction
-			glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),      // startColor
-			glm::vec4(1.0f, 1.0f, 1.0f, 0.0f),      // endColor
-			1.0f,                             // size
-			1.0f,                             // speed
-			0.0f,                             // speedVariation
-			30.0f,                            // spread
-			2.0f,                             // particleLifetime
-			0.0f                              // particleLifetimeVariation
-		},
-		100                                   // burst count
-	);
-
-	//imgui_manager.SetActiveEmitter(&continuousEmitter);
-	imgui_manager.SetContinuousEmitter(&continuousEmitter);
-	imgui_manager.SetBurstEmitter(&burstEmitter);
 
 	CreateShaders();
 	CreateComputeShaders();
@@ -415,11 +341,8 @@ int main() {
 
 		int selectedMode = imgui_manager.GetSelectedMode();
 
-		gpu::EmitterConfig currentConfig = ToGpuEmitterConfig(imgui_manager.GetEmitterConfig(), gpuConfig);
+		gpu::EmitterConfig currentConfig = imgui_manager.GetEmitterConfig();
 		currentConfig.deltaTime = deltaTime;
-		currentConfig.emitterType = imgui_manager.GetSelectedMode();
-		currentConfig.spawnRate = imgui_manager.GetSpawnRate();
-		currentConfig.burstCount = imgui_manager.GetBurstCount();
 
 		glBindBuffer(GL_UNIFORM_BUFFER, emitterConfigUBO);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(gpu::EmitterConfig), &currentConfig);
@@ -479,7 +402,7 @@ int main() {
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "shapeParticleCount"), imgui_manager.GetShapeParticleCount());
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "frameSeed"), frameCount);
 			glUniform3f(glGetUniformLocation(shapeInitComputeShader, "gradientStartPos"), imgui_manager.GetGradientStart().x, imgui_manager.GetGradientStart().y, imgui_manager.GetGradientStart().z);
-			glUniform3f(glGetUniformLocation(shapeInitComputeShader, "gradientStartPos"), imgui_manager.GetGradientEnd().x, imgui_manager.GetGradientEnd().y, imgui_manager.GetGradientEnd().z);
+			glUniform3f(glGetUniformLocation(shapeInitComputeShader, "gradientEndPos"), imgui_manager.GetGradientEnd().x, imgui_manager.GetGradientEnd().y, imgui_manager.GetGradientEnd().z);
 			glUniform1ui(glGetUniformLocation(shapeInitComputeShader, "gradientMode"), imgui_manager.GetSelectedGradientMode());
 
 			if(imgui_manager.GetShapeHollowEnabled()) {
@@ -490,6 +413,9 @@ int main() {
 
 			if (imgui_manager.GetShapeOffsetsEnabled()) {
 				glUniform3f(glGetUniformLocation(shapeInitComputeShader, "shapeOffsets"), imgui_manager.GetShapeOffsets().x, imgui_manager.GetShapeOffsets().y, imgui_manager.GetShapeOffsets().z);
+			}
+			else {
+				glUniform3f(glGetUniformLocation(shapeInitComputeShader, "shapeOffsets"), 0.0f, 0.0f, 0.0f);
 			}
 
 			if(imgui_manager.GetShapeRoughnessEnabled()){

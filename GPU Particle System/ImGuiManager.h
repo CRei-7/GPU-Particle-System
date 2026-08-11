@@ -10,11 +10,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "Emitter.h"
-#include "EmitterConfig.h"
-#include "ContinuousEmitter.h"
-#include "BurstEmitter.h"
 #include "ParticleGenMode.h"
+#include "GPUStructures.h"
 
 class ImGuiManager
 {
@@ -34,12 +31,8 @@ public:
     bool& ShowDemoWindow();
     bool& ShowAnotherWindow();
 
-    // Emitter integration
-    void SetContinuousEmitter(ContinuousEmitter* emitter);
-    void SetBurstEmitter(BurstEmitter* emitter);
-
-    const EmitterConfig& GetEmitterConfig() const;                // Get a copy/reference of the ImGui-ed config
-    void SetEmitterConfig(const EmitterConfig& config);           // Replace ImGui's internal config
+	void SetEmitterConfig(const gpu::EmitterConfig& config);
+	const gpu::EmitterConfig& GetEmitterConfig() const;
 
     int GetSelectedMode() const { return selectedMode; }
 
@@ -72,11 +65,11 @@ public:
 	bool GetShapeRotationEnabled() { return shapeRotationEnabled; }
 	float GetAngularVelocity() { return angularVelocity; }
 
-	float GetSpawnRate() { return spawnRate; }
-	float GetBurstCount() { return burstCount; }
+	float GetSpawnRate() { return emitterConfig.spawnRate; }
+	float GetBurstCount() { return emitterConfig.burstCount; }
 
-	void SetSpawnRate(float rate) { spawnRate = rate; }
-	void SetBurstCount(float count) { burstCount = count; }
+	void SetSpawnRate(float rate) { emitterConfig.spawnRate = rate; }
+	void SetBurstCount(int count) { emitterConfig.burstCount = count; }
 
 	void SetGlowIntensity(float* ptr) { glowIntensity = ptr; }
 	void SetQuadRadius(float* ptr) { quadRadius = ptr; }
@@ -96,16 +89,18 @@ private:
 
     GLFWwindow* window = nullptr; // Store the GLFW window pointer
 
-    // Local copy of emitter config exposed to ImGui controls
-    EmitterConfig imguiEmitterConfig{};
-    Emitter* activeEmitter = nullptr;
+	gpu::EmitterConfig emitterConfig{};
 
-    ContinuousEmitter* continuousEmitter = nullptr;
-    BurstEmitter* burstEmitter = nullptr;
+	gpu::EmitterConfig continuousConfig{};
+	gpu::EmitterConfig burstConfig{};
+	gpu::EmitterConfig shapeConfig{};
+	gpu::EmitterConfig defaultConfig{};
+
+	void StoreConfigForMode(int mode);
+	void LoadConfigForMode(int mode);
 
 	int selectedMode = 0; //0 = continuous, 1 = burst, 2 = sphere, 3 = disc, 4 = cube
-
-    void ApplyConfigToActiveEmitter();
+	int lastSelectedMode = 0;
 
     float* gravity = nullptr;
 	uint32_t* aliveCount = nullptr;
@@ -129,9 +124,6 @@ private:
 
 	bool shapeRotationEnabled = false; // Default rotation disabled
 	float angularVelocity = 0.0f; // Default rotation speed for shape rotation
-
-	float spawnRate = 600.0f;
-	float burstCount = 100.0f;
 
 	float* glowIntensity = nullptr;
 	float* quadRadius = nullptr;
