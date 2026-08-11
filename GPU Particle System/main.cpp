@@ -16,7 +16,7 @@
 #include "ImGuiManager.h"
 //#include "ContinuousEmitter.h"
 //#include "EmitterConfig.h"
-#include "BurstEmitter.h"
+//#include "BurstEmitter.h"
 #include "GPUStructures.h"
 
 #include "ParticleGenMode.h"
