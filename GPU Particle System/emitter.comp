@@ -79,17 +79,22 @@ float randomFloat(uint seed, float min, float max) {
 }
 
 // Cone direction for continuous emitter spread
-vec3 randomConeDirection(uint seed, vec3 baseDir, float spreadDegrees) { //Here we use spherical coordinates
-    float theta = randomFloat(hash(seed + 1u), 0.0, 2.0 * PI); // Random azimuthal angle
-    float phi = randomFloat(hash(seed + 2u), 0.0, spreadDegrees * PI / 180.0); // Random polar angle within the spread cone
-    
-    vec3 offset = vec3(// Convert spherical coordinates to Cartesian coordinates
-        sin(phi) * cos(theta),
-        sin(phi) * sin(theta),
-        cos(phi)
-    );
-    
-    return normalize(baseDir + offset);
+vec3 randomConeDirection(uint seed, vec3 baseDir, float spreadDegrees) {
+    float len = length(baseDir);
+    vec3 axis = (len > 1e-6) ? baseDir / len : vec3(0.0, 1.0, 0.0);
+
+    float theta  = randomFloat(hash(seed + 1u), 0.0, 2.0 * PI);// Random azimuthal angle
+    float cosMax = cos(radians(clamp(spreadDegrees, 0.0, 180.0)));
+    float cosPhi = mix(1.0, cosMax, randomFloat(hash(seed + 2u), 0.0, 1.0));
+    float sinPhi = sqrt(max(0.0, 1.0 - cosPhi * cosPhi));
+
+    vec3 helper    = (abs(axis.z) < 0.999) ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent   = normalize(cross(helper, axis));
+    vec3 bitangent = cross(axis, tangent);
+
+    return tangent   * (sinPhi * cos(theta))
+         + bitangent * (sinPhi * sin(theta))
+         + axis      * cosPhi;
 }
 
 int acquire() { //This is the same as acquire in ParticlePool.cpp
@@ -133,7 +138,7 @@ void spawnParticle(uint particleIndex, uint seed, bool isBurst) {
     particles[particleIndex] = p;
 
     for(uint s = 0u; s < trailSamples; ++s){
-        trailPoints[s * maxParticles + particleIndex] = vec4(0.0);    
+        trailPoints[s * maxParticles + particleIndex] = vec4(p.position.xyz, 1.0);    
     }
 }
 

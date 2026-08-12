@@ -6,7 +6,7 @@ ImGuiManager::ImGuiManager()
 {
 	// sensible defaults for the ImGui-side emitter config
 	emitterConfig.position = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-	emitterConfig.direction = glm::vec4(0.0f, 1.0f, -1.0f, 0.0f);
+	emitterConfig.direction = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
 	emitterConfig.startColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	emitterConfig.endColor = glm::vec4(1.0f, 1.0f, 1.0f, 0.0f);
 	emitterConfig.size = 1.0f;
@@ -216,13 +216,7 @@ void ImGuiManager::Render()
 		{
 			ImGui::DragFloat3("Position", glm::value_ptr(emitterConfig.position), 0.1f);
 
-			if (ImGui::DragFloat3("Direction", glm::value_ptr(emitterConfig.direction), 0.1f))
-			{
-				glm::vec3 dir(emitterConfig.direction);
-				float len = glm::length(dir);
-				if (len > 1e-6f)                      // dragging to (0,0,0) used to produce NaN
-					emitterConfig.direction = glm::vec4(dir / len, 0.0f);
-			}
+			ImGui::DragFloat3("Direction", glm::value_ptr(emitterConfig.direction), 0.1f);
 
 			ImGui::ColorEdit4("Start Color", glm::value_ptr(emitterConfig.startColor));
 			ImGui::ColorEdit4("End Color", glm::value_ptr(emitterConfig.endColor));
@@ -244,6 +238,8 @@ void ImGuiManager::Render()
 			{
 				emitterConfig = defaultConfig;
 				emitterConfig.emitterType = selectedMode;
+				if (selectedMode == 1)
+					emitterConfig.spawnRate = 10.0f;
 			}
 		}
 

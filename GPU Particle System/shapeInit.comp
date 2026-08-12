@@ -209,7 +209,7 @@ void main() {
     particles[particleIndex] = p;
 
     for(uint s = 0u; s < trailSamples; ++s){
-        trailPoints[s * maxParticles + particleIndex] = vec4(0.0);    
+        trailPoints[s * maxParticles + particleIndex] = vec4(p.position.xyz, 1.0);    
     }
 }
  
