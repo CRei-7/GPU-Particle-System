@@ -26,8 +26,8 @@ Camera camera;
 
 const int MAX_PARTICLES = 100000;
 
-const unsigned int SCR_WIDTH = 1080;
-const unsigned int SCR_HEIGHT = 720;
+const unsigned int SCR_WIDTH = 1920;
+const unsigned int SCR_HEIGHT = 1080;
 
 const int TRAIL_SAMPLES = 16;
 
@@ -419,13 +419,6 @@ int main() {
 			glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(uint32_t), &zero);
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 			glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			//Dispatches particle compute shader
-			//glUseProgram(particleComputeShader);
-			//glUniform1f(glGetUniformLocation(particleComputeShader, "gravity"), gravity);
-			//glUniform1ui(glGetUniformLocation(particleComputeShader, "maxParticles"), MAX_PARTICLES);
-			//glDispatchCompute((MAX_PARTICLES + 63) / 64, 1, 1); // 64 threads per workgroup
-			//glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 		} 
 		else if (needsInit) {
 			glUseProgram(shapeInitComputeShader);
